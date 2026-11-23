@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wordle</title>
+<style>
+:root{--bg:#fff;--fg:#1a1a1b;--muted:#787c7e;--line:#d3d6da;--g:#6aaa64;--y:#c9b458;--x:#787c7e;--k:#d3d6da;--kt:#1a1a1b;--e:#d3d6da;--f:#878a8c;--toast:#1a1a1b;--toastfg:#fff;--modal:#fff;--shade:rgba(255,255,255,.5)}
+@media (prefers-color-scheme:dark){:root{--bg:#121213;--fg:#f8f8f8;--muted:#818384;--line:#3a3a3c;--g:#538d4e;--y:#b59f3b;--x:#3a3a3c;--k:#818384;--kt:#fff;--e:#3a3a3c;--f:#565758;--toast:#f8f8f8;--toastfg:#121213;--modal:#1a1a1b;--shade:rgba(0,0,0,.5)}}
+/* --u: one layout unit. The whole layout (~720u tall) scales to fill the window height,
+   capped by width so the board fits on phones. */
+:root{--u:clamp(.6px,min(100dvh/720,100vw/380),2px)}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font-family:"Helvetica Neue",Helvetica,Arial,sans-serif}
+body{display:flex;flex-direction:column;align-items:center}
+header{width:100%;border-bottom:1px solid var(--line);display:flex;justify-content:center}
+.bar{width:100%;max-width:calc(500*var(--u));display:flex;align-items:center;justify-content:space-between;padding:calc(6*var(--u)) calc(12*var(--u));gap:8px}
+.bar .side{display:flex;align-items:center;gap:calc(4*var(--u));min-width:calc(120*var(--u))}
+.bar .side.right{justify-content:flex-end}
+h1{font-family:Georgia,"Times New Roman",serif;font-weight:700;font-size:calc(30*var(--u));margin:0}
+.icon{background:none;border:none;color:var(--fg);padding:calc(6*var(--u));cursor:pointer;border-radius:4px;display:flex}
+.icon svg,.key svg{width:calc(24*var(--u));height:calc(24*var(--u))}
+.icon:focus-visible,.key:focus-visible,.btn:focus-visible{outline:2px solid var(--g);outline-offset:2px}
+main{flex:1;width:100%;max-width:calc(500*var(--u));display:flex;flex-direction:column;justify-content:space-between;position:relative}
+#board{display:grid;grid-template-rows:repeat(6,1fr);gap:calc(5*var(--u));width:calc(330*var(--u));aspect-ratio:5/6;margin:calc(20*var(--u)) auto}
+.row{display:grid;grid-template-columns:repeat(5,1fr);gap:calc(5*var(--u))}
+.row.shake{animation:shake .5s}
+@keyframes shake{10%,90%{transform:translateX(-1px)}20%,80%{transform:translateX(2px)}30%,50%,70%{transform:translateX(-4px)}40%,60%{transform:translateX(4px)}}
+.tile{border:2px solid var(--e);display:flex;align-items:center;justify-content:center;font-size:calc(32*var(--u));font-weight:700;text-transform:uppercase;user-select:none}
+.tile.filled{border-color:var(--f);animation:pop .1s}
+@keyframes pop{50%{transform:scale(1.1)}}
+.tile.flip{animation:flip .5s ease forwards}
+@keyframes flip{0%{transform:rotateX(0)}50%{transform:rotateX(-90deg)}100%{transform:rotateX(0)}}
+.tile.g,.tile.y,.tile.x{color:#fff;border-color:transparent}
+.tile.g{background:var(--g)}.tile.y{background:var(--y)}.tile.x{background:var(--x)}
+.tile.win{animation:bounce .4s ease}
+@keyframes bounce{0%,100%{transform:translateY(0)}40%{transform:translateY(-24px)}70%{transform:translateY(4px)}}
+#kb{padding:0 8px calc(8*var(--u));width:100%}
+.krow{display:flex;gap:calc(6*var(--u));margin-bottom:calc(8*var(--u));justify-content:center;touch-action:manipulation}
+.key{flex:1;max-width:calc(43*var(--u));height:calc(58*var(--u));border:none;border-radius:4px;background:var(--k);color:var(--kt);font:700 calc(13*var(--u)) "Helvetica Neue",Helvetica,Arial,sans-serif;text-transform:uppercase;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;-webkit-tap-highlight-color:transparent}
+.key.wide{flex:1.5;max-width:calc(65*var(--u));font-size:calc(12*var(--u))}
+.key.g{background:var(--g);color:#fff}.key.y{background:var(--y);color:#fff}.key.x{background:var(--x);color:#fff}
+.spacer{flex:.5;max-width:calc(20*var(--u))}
+#toasts{position:absolute;top:calc(12*var(--u));left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:8px;z-index:10;pointer-events:none}
+.toast{background:var(--toast);color:var(--toastfg);font-weight:700;font-size:calc(14*var(--u));padding:calc(12*var(--u)) calc(16*var(--u));border-radius:4px;transition:opacity .3s;white-space:nowrap}
+#source{text-align:center;font-size:calc(12*var(--u));color:var(--muted);padding:0 0 calc(8*var(--u))}
+.overlay{position:fixed;inset:0;background:var(--shade);display:none;align-items:center;justify-content:center;z-index:20;padding:16px}
+.overlay.open{display:flex}
+.modal{background:var(--modal);color:var(--fg);width:100%;max-width:420px;max-height:92dvh;overflow:auto;border-radius:8px;padding:16px 20px 24px;position:relative;box-shadow:0 4px 23px rgba(0,0,0,.2)}
+.modal h2{font-size:14px;font-weight:700;text-align:center;margin:12px 0 10px;letter-spacing:.02em}
+.close{position:absolute;top:10px;right:10px}
+.stats{display:flex;justify-content:center;gap:8px;margin-bottom:8px}
+.stat{flex:1;max-width:80px;text-align:center}
+.stat b{display:block;font-size:34px;font-weight:400}
+.stat span{font-size:12px}
+.dist{display:flex;flex-direction:column;gap:4px;max-width:340px;margin:0 auto}
+.drow{display:flex;align-items:center;gap:6px;font-size:14px}
+.drow .n{width:10px}
+.drow .bar2{background:var(--x);color:#fff;font-weight:700;text-align:right;padding:2px 8px;min-width:7%}
+.drow .bar2.hl{background:var(--g)}
+.actions{display:flex;justify-content:center;gap:10px;margin-top:20px}
+.btn{border:none;border-radius:24px;padding:12px 22px;font:700 15px "Helvetica Neue",Helvetica,Arial,sans-serif;cursor:pointer}
+.btn.primary{background:var(--g);color:#fff}
+.btn.plain{background:var(--k);color:var(--kt)}
+.word{text-align:center;margin:28px 0 4px;padding:14px 12px;border:1px solid var(--line);border-radius:8px}
+.word .lbl{font-size:12px;color:var(--muted);margin-bottom:4px}
+.word .w{font-size:28px;font-weight:700;letter-spacing:.12em;text-transform:uppercase}
+.word .ph{color:var(--muted);font-size:14px}
+.word .zh{font-size:20px;margin:8px 0 4px}
+.word .def{font-size:13px;color:var(--muted);line-height:1.45}
+.word a{display:inline-block;margin-top:6px;font-size:12px;color:var(--muted)}
+@media (prefers-reduced-motion:reduce){.tile,.row{animation:none!important}}
+</style>
+</head>
+<body>
+<header>
+<div class="bar">
+<div class="side"></div>
+<h1>Wordle</h1>
+<div class="side right">
+<button class="icon" id="statsBtn" aria-label="Statistics"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/></svg></button>
+<button class="icon" id="newBtn" aria-label="New game"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 11A8 8 0 1 0 18 17"/><path d="M20 4v7h-7"/></svg></button>
+</div>
+</div>
+</header>
+<main>
+<div id="toasts" role="status" aria-live="polite"></div>
+<div id="board"></div>
+<div>
+<div id="kb"></div>
+<div id="source">Loading word list…</div>
+</div>
+</main>
+<div class="overlay" id="overlay">
+<div class="modal" role="dialog" aria-modal="true" aria-labelledby="statsTitle">
+<button class="icon close" id="closeBtn" aria-label="Close"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+<div class="word" id="wordCard" hidden>
+<div class="lbl" id="wLbl"></div>
+<div class="w" id="wWord"></div>
+<div class="ph" id="wPhon"></div>
+<div class="zh" id="wZh"></div>
+<div class="def" id="wDef"></div>
+<a id="wMore" target="_blank" rel="noopener">更多释义 · Youdao</a>
+</div>
+<h2 id="statsTitle">Statistics</h2>
+<div class="stats">
+<div class="stat"><b id="sPlayed">0</b><span>Played</span></div>
+<div class="stat"><b id="sWin">0</b><span>Win %</span></div>
+<div class="stat"><b id="sCur">0</b><span>Current streak</span></div>
+<div class="stat"><b id="sMax">0</b><span>Max streak</span></div>
+</div>
+<h2>Guess distribution</h2>
+<div class="dist" id="dist"></div>
+<div class="actions">
+<button class="btn plain" id="shareBtn">Share</button>
+<button class="btn primary" id="playBtn">Next word</button>
+</div>
+</div>
+</div>
+<script>
+const FB="crane slate trace flame brick chair plant stone grape house light storm beach dream blues chord stage drums notes scale tempo knife ghost lemon river ocean pearl quiet sweet happy brave cloud dance eagle fable giant honey irony jolly karma maple noble orbit piano queen radio solar tiger ultra vivid whale young zebra adapt bloom crisp delta ember frost glide haste input joint lunar mirth nerve oasis prism quilt rover spice tonic unity vapor witty yeast zesty audio basic cabin daisy enjoy flock gloom hinge index jumpy koala ledge mango nylon olive pouch rumor sauce trend upset vault wrist alarm blend charm dwell epoch flair grind heart".split(" ");
+const WIN_MSG=["Genius","Magnificent","Impressive","Splendid","Great","Phew"];
+const $=id=>document.getElementById(id);
+const board=$("board"),kb=$("kb"),toasts=$("toasts"),overlay=$("overlay");
+
+let ANS=FB,VALID=new Set(FB),ready=false;
+let gid=0,ans,row,col,b,over,won,busy,results,winRow;
+
+const STATS_KEY="wordle-standalone-stats";
+function loadStats(){try{const s=JSON.parse(localStorage.getItem(STATS_KEY));if(s&&Array.isArray(s.dist))return s}catch(e){}return{played:0,wins:0,cur:0,max:0,dist:[0,0,0,0,0,0]}}
+function saveStats(){try{localStorage.setItem(STATS_KEY,JSON.stringify(stats))}catch(e){}}
+let stats=loadStats();
+
+async function getJSON(u){const r=await fetch(u);if(!r.ok)throw new Error(r.status);return r.json()}
+const clean=a=>a.filter(w=>typeof w==="string"&&/^[a-z]{5}$/.test(w));
+async function loadWords(){
+  try{
+    const [a,n]=await Promise.all([getJSON("https://cdn.jsdelivr.net/npm/wordles/wordles.json"),getJSON("https://cdn.jsdelivr.net/npm/wordles/nonwordles.json")]);
+    const A=clean(a),N=clean(n);
+    if(A.length<1000)throw new Error("short");
+    ANS=A;VALID=new Set(A.concat(N));
+    return "Word list: NYT Wordle ("+VALID.size.toLocaleString()+" words)";
+  }catch(e){}
+  try{
+    const r=await fetch("https://cdn.jsdelivr.net/gh/tabatkins/wordle-list@main/words");
+    if(!r.ok)throw new Error(r.status);
+    const v=clean((await r.text()).split(/\s+/));
+    if(v.length<5000)throw new Error("short");
+    VALID=new Set(v);
+    const a=FB.filter(w=>VALID.has(w));if(a.length)ANS=a;
+    return "Word list: Wordle guesses ("+VALID.size.toLocaleString()+" words)";
+  }catch(e){}
+  return "Offline: limited word list. Connect to the internet and reload for the full dictionary.";
+}
+
+function toast(text,ms=1000){
+  const d=document.createElement("div");d.className="toast";d.textContent=text;
+  toasts.prepend(d);
+  if(ms)setTimeout(()=>{d.style.opacity=0;setTimeout(()=>d.remove(),300)},ms);
+}
+
+const BACKSPACE='<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 5H8l-6 7 6 7h13z"/><path d="M17 9l-6 6M11 9l6 6"/></svg>';
+
+function build(){
+  gid++;
+  ans=ANS[Math.floor(Math.random()*ANS.length)];
+  VALID.add(ans);
+  row=0;col=0;over=false;won=false;busy=false;winRow=-1;
+  results=[];
+  b=Array.from({length:6},()=>Array(5).fill(""));
+  toasts.innerHTML="";
+  board.innerHTML="";
+  for(let r=0;r<6;r++){
+    const d=document.createElement("div");d.className="row";d.id="r"+r;
+    for(let c=0;c<5;c++){const t=document.createElement("div");t.className="tile";t.id="t"+r+"_"+c;d.appendChild(t)}
+    board.appendChild(d);
+  }
+  kb.innerHTML="";
+  ["qwertyuiop","-asdfghjkl-","EzxcvbnmB"].forEach(s=>{
+    const d=document.createElement("div");d.className="krow";
+    [...s].forEach(k=>{
+      if(k==="-"){const sp=document.createElement("div");sp.className="spacer";d.appendChild(sp);return}
+      const bt=document.createElement("button");bt.className="key";bt.type="button";
+      if(k==="E"){bt.textContent="Enter";bt.classList.add("wide");bt.dataset.k="Enter"}
+      else if(k==="B"){bt.innerHTML=BACKSPACE;bt.setAttribute("aria-label","Delete");bt.classList.add("wide");bt.dataset.k="Backspace"}
+      else{bt.textContent=k;bt.dataset.k=k;bt.id="key-"+k}
+      d.appendChild(bt);
+    });
+    kb.appendChild(d);
+  });
+}
+
+function shake(){const r=$("r"+row);r.classList.remove("shake");void r.offsetWidth;r.classList.add("shake")}
+
+function key(k){
+  if(!ready||busy)return;
+  if(over){if(k==="Enter")newGame();return}
+  if(k==="Enter")return submit();
+  if(k==="Backspace"){
+    if(col>0){col--;b[row][col]="";const t=$("t"+row+"_"+col);t.textContent="";t.classList.remove("filled")}
+    return;
+  }
+  if(/^[a-z]$/i.test(k)&&col<5){
+    b[row][col]=k.toLowerCase();
+    const t=$("t"+row+"_"+col);t.textContent=b[row][col];
+    t.classList.remove("filled");void t.offsetWidth;t.classList.add("filled");
+    col++;
+  }
+}
+
+function score(g,a){
+  const res=Array(5).fill("x"),left={};
+  for(let i=0;i<5;i++){if(g[i]===a[i])res[i]="g";else left[a[i]]=(left[a[i]]||0)+1}
+  for(let i=0;i<5;i++)if(res[i]!=="g"&&left[g[i]]>0){res[i]="y";left[g[i]]--}
+  return res;
+}
+
+function paintKey(l,s){
+  const k=$("key-"+l);if(!k)return;
+  const rank={x:1,y:2,g:3},cur=k.dataset.s;
+  if(cur&&rank[cur]>=rank[s])return;
+  k.dataset.s=s;k.classList.remove("g","y","x");k.classList.add(s);
+}
+
+function submit(){
+  if(col<5){toast("Not enough letters");shake();return}
+  const g=b[row].join("");
+  if(!VALID.has(g)){toast("Not in word list");shake();return}
+  busy=true;
+  const id=gid,r=row,res=score(g,ans);
+  results.push(res);
+  res.forEach((s,i)=>{
+    const t=$("t"+r+"_"+i);
+    setTimeout(()=>{if(id!==gid)return;t.classList.remove("filled");t.classList.add("flip");setTimeout(()=>{if(id===gid)t.classList.add(s)},250)},i*300);
+  });
+  setTimeout(()=>{
+    if(id!==gid)return;
+    res.forEach((s,i)=>paintKey(g[i],s));
+    busy=false;
+    if(g===ans){
+      over=true;won=true;winRow=r;
+      toast(WIN_MSG[r],2000);
+      for(let i=0;i<5;i++){const t=$("t"+r+"_"+i);setTimeout(()=>{if(id!==gid)return;t.classList.remove("flip");t.classList.add("win")},i*100)}
+      finish(true,r,id);return;
+    }
+    row++;col=0;
+    if(row===6){over=true;toast(ans.toUpperCase(),0);finish(false,-1,id)}
+  },4*300+550);
+}
+
+// Answer lookup: Chinese via MyMemory, phonetic + English definition via dictionaryapi.dev
+const dict=new Map();
+function lookup(w){
+  if(dict.has(w))return dict.get(w);
+  const out={};
+  const p=Promise.allSettled([
+    fetch("https://api.dictionaryapi.dev/api/v2/entries/en/"+w).then(r=>r.ok?r.json():null).then(d=>{
+      const e=d&&d[0];if(!e)return;
+      out.phon=e.phonetic||((e.phonetics||[]).find(x=>x.text)||{}).text||"";
+      out.def=(e.meanings||[]).slice(0,2).map(m=>m.partOfSpeech+". "+m.definitions[0].definition).join("  ");
+    }),
+    fetch("https://api.mymemory.translated.net/get?q="+w+"&langpair=en|zh-CN").then(r=>r.json()).then(d=>{
+      const c=[d.responseData&&d.responseData.translatedText].concat((d.matches||[]).map(m=>m.translation))
+        .filter(t=>t&&/[\u4e00-\u9fff]/.test(t)&&t.length<=12).map(t=>t.replace(/[。.]$/,"").trim());
+      out.zh=[...new Set(c)].slice(0,3).join("；");
+    })
+  ]).then(()=>out);
+  dict.set(w,p);return p;
+}
+function renderWord(){
+  const card=$("wordCard");
+  if(!over){card.hidden=true;return}
+  card.hidden=false;
+  $("wLbl").textContent=won?"今天的单词 · The word":"答案 · The word was";
+  $("wWord").textContent=ans;
+  $("wMore").href="https://dict.youdao.com/result?word="+ans+"&lang=en";
+  $("wPhon").textContent="";$("wZh").textContent="查询中…";$("wDef").textContent="";
+  const w=ans,id=gid;
+  lookup(w).then(o=>{
+    if(id!==gid)return;
+    $("wPhon").textContent=o.phon||"";
+    $("wZh").textContent=o.zh||"（暂无翻译，点下方链接查看）";
+    $("wDef").textContent=o.def||"";
+  });
+}
+
+function finish(win,r,id){
+  lookup(ans);
+  const ek=kb.querySelector('[data-k="Enter"]');if(ek)ek.textContent="Next";
+  stats.played++;
+  if(win){stats.wins++;stats.cur++;stats.max=Math.max(stats.max,stats.cur);stats.dist[r]++}
+  else stats.cur=0;
+  saveStats();
+  setTimeout(()=>{if(id===gid)openStats()},win?2200:1800);
+}
+
+function openStats(){
+  $("sPlayed").textContent=stats.played;
+  $("sWin").textContent=stats.played?Math.round(stats.wins/stats.played*100):0;
+  $("sCur").textContent=stats.cur;
+  $("sMax").textContent=stats.max;
+  renderWord();
+  const max=Math.max(1,...stats.dist),dist=$("dist");dist.innerHTML="";
+  stats.dist.forEach((n,i)=>{
+    const d=document.createElement("div");d.className="drow";
+    d.innerHTML='<span class="n">'+(i+1)+'</span><div class="bar2'+(over&&won&&i===winRow?" hl":"")+'" style="width:'+Math.max(7,Math.round(n/max*100))+'%">'+n+'</div>';
+    dist.appendChild(d);
+  });
+  $("shareBtn").style.display=over?"":"none";
+  overlay.classList.add("open");
+  $("closeBtn").focus();
+}
+function closeStats(){overlay.classList.remove("open")}
+
+async function share(){
+  const dark=matchMedia("(prefers-color-scheme: dark)").matches;
+  const em={g:"\u{1F7E9}",y:"\u{1F7E8}",x:dark?"\u2B1B":"\u2B1C"};
+  const text="Wordle "+(won?winRow+1:"X")+"/6"+"\n\n"+results.map(r=>r.map(s=>em[s]).join("")).join("\n");
+  try{await navigator.clipboard.writeText(text);toast("Copied results to clipboard")}
+  catch(e){
+    const ta=document.createElement("textarea");ta.value=text;document.body.appendChild(ta);ta.select();
+    try{document.execCommand("copy");toast("Copied results to clipboard")}catch(e2){toast("Copy failed. Select and copy manually.")}
+    ta.remove();
+  }
+}
+
+function newGame(){
+  if(busy)return;
+  if(!over&&row>0){
+    if(!confirm("Start a new game? This one will count as a loss."))return;
+    stats.played++;stats.cur=0;saveStats();
+  }
+  closeStats();build();
+}
+
+kb.addEventListener("click",e=>{const bt=e.target.closest(".key");if(!bt)return;bt.blur();key(bt.dataset.k)});
+document.addEventListener("keydown",e=>{
+  if(overlay.classList.contains("open")){
+    if(e.key==="Escape")closeStats();
+    else if(e.key==="Enter"&&over){e.preventDefault();newGame()}
+    return;
+  }
+  if(e.ctrlKey||e.metaKey||e.altKey)return;
+  if(e.key==="Enter"||e.key==="Backspace"||/^[a-zA-Z]$/.test(e.key)){e.preventDefault();key(e.key)}
+});
+overlay.addEventListener("click",e=>{if(e.target===overlay)closeStats()});
+$("closeBtn").onclick=closeStats;
+$("statsBtn").onclick=e=>{e.currentTarget.blur();openStats()};
+$("newBtn").onclick=e=>{e.currentTarget.blur();newGame()};
+$("playBtn").onclick=newGame;
+$("shareBtn").onclick=share;
+
+build();
+loadWords().then(m=>{$("source").textContent=m;ready=true;build()});
+</script>
+</body>
+</html>
