@@ -186,13 +186,19 @@ body.duo #duoBar{display:flex}
 .close{position:absolute;top:8px;right:8px}
 /* Play together: the two modes sit side by side as equals, split by a hairline.
    Each column ends in its action, pinned to the bottom so the buttons line up. */
-.duoModal{max-width:1080px;padding:24px 36px 34px}
+.duoModal{max-width:1320px;padding:24px 36px 34px}
 .duoModal h2{margin:10px 0 22px}
-.modes{display:grid;grid-template-columns:repeat(3,1fr)}
-.mode{display:flex;flex-direction:column;min-width:0;padding:0 30px}
+.modes{display:grid;grid-template-columns:repeat(4,1fr)}
+.mode{display:flex;flex-direction:column;min-width:0;padding:0 26px}
 .mode:not(:last-child){border-right:1px solid var(--t20)}
 .mode:first-child{padding-left:0}
 .mode:last-child{padding-right:0}
+/* Four columns need ~1200px; between that and phone width the modes sit two by two. */
+@media (max-width:1200px) and (min-width:901px){
+  .duoModal{max-width:820px}
+  .modes{grid-template-columns:1fr 1fr;row-gap:28px}
+  .mode:nth-child(odd){padding-left:0}.mode:nth-child(even){padding-right:0;border-right:0}
+}
 .mode .glyph{width:30px;height:30px;opacity:.75;margin-bottom:10px}
 .mode h3{margin:0}
 .mode .tag{font-style:italic;margin:2px 0 10px}
@@ -304,6 +310,24 @@ body.chatSheet #chatStrip{display:flex}
 #stripUse{padding:calc(6px + var(--nudge)) 12px 6px;font-size:16px;flex:none}
 #stripUnread{flex:none;min-width:24px;height:24px;border-radius:12px;background:var(--fg);color:var(--bg);font:600 16px/24px "Newsreader",serif;text-align:center;padding:0 6px}
 #stripUnread[hidden],#stripUse[hidden]{display:none}
+/* ---------- Same screen: two boards side by side over one keyboard ----------
+   #couchWrap is a size container like #boardWrap; each grid takes the largest 5:6 box that fits
+   in its half, and tile lettering scales off the same --bh. The idle board dims. */
+#couchWrap{display:none;flex:1;min-height:0;container-type:size;align-items:center;justify-content:center;gap:6cqw}
+body.couch #couchWrap{display:flex}
+body.couch #boardWrap{display:none}
+body.couch main{max-width:min(1240px,100%)}
+body.couch #kb{max-width:calc(540*var(--u));margin:0 auto}
+.cboard{display:flex;flex-direction:column;align-items:center;gap:14px;transition:opacity .35s var(--ease)}
+.cboard.idle{opacity:.42}
+.cgrid{--bh:min(100cqh - 84px,(44cqw - 24px)*1.2);height:var(--bh);width:calc(var(--bh)*5/6);display:grid;grid-template-rows:repeat(6,1fr);gap:calc(var(--bh)*.016)}
+.clabel{display:flex;align-items:baseline;gap:12px;width:100%;font-size:20px}
+.cname{font-weight:600}
+.cturn{font-style:italic;color:var(--muted);font-size:17px;visibility:hidden}
+.cboard.active .cturn{visibility:visible}
+.cscore{margin-left:auto;font-size:30px;font-weight:600;font-variation-settings:"opsz" 60;line-height:1}
+.couchRes .resultWrap>.modal>h2,.couchRes .stats,.couchRes .dist,.couchRes #shareBtn,.couchRes #chalBtn{display:none}
+.couchRes .vs{margin-top:20px}
 @media (prefers-reduced-motion:reduce){.tile,.row{animation:none!important}*{transition:none!important}.liveDot{animation:none}}
 </style>
 </head>
@@ -331,6 +355,10 @@ body.chatSheet #chatStrip{display:flex}
 <div class="oppWrap">them<div class="mini" id="mini"></div></div>
 </div>
 <div id="boardWrap"><div id="board"></div></div>
+<div id="couchWrap">
+<div class="cboard" id="cp0"><div class="clabel"><span class="cname">Player 1</span><span class="cturn">to play</span><span class="cscore" id="cs0">0</span></div><div class="cgrid" id="cg0"></div></div>
+<div class="cboard" id="cp1"><div class="clabel"><span class="cname">Player 2</span><span class="cturn">to play</span><span class="cscore" id="cs1">0</span></div><div class="cgrid" id="cg1"></div></div>
+</div>
 </div>
 <div id="chatStrip" role="button" tabindex="0" aria-label="Open chat">
 <span class="liveDot" aria-hidden="true"></span><span id="stripText"></span>
@@ -405,6 +433,16 @@ body.chatSheet #chatStrip{display:flex}
 <p id="roomStatus"></p>
 </div>
 <button class="btn" id="leaveBtn" hidden>Leave live match</button>
+</div>
+</section>
+<section class="mode">
+<svg class="glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="4" width="19" height="12.5" rx="2"/><rect x="5.5" y="7" width="5.5" height="6.5" rx=".8"/><rect x="13" y="7" width="5.5" height="6.5" rx=".8"/><path d="M8 20.5h8M12 16.5v4"/></svg>
+<h3>Same screen</h3>
+<p class="tag">Two players, one keyboard</p>
+<p>Each of you gets your own board for the same word. Take turns, one guess each; first to solve it on their board wins the round. Best on a computer.</p>
+<div class="modeAct">
+<button class="btn primary" id="couchBtn">Start</button>
+<button class="btn" id="endCouchBtn" hidden>End same screen</button>
 </div>
 </section>
 <section class="mode">
@@ -499,12 +537,12 @@ function toast(text,ms=1200){
 
 const BACKSPACE='<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 5H8l-6 7 6 7h13z"/><path d="M17 9l-6 6M11 9l6 6"/></svg>';
 
-function makeBoard(){
-  board.innerHTML="";
+function makeBoard(el=board,prefix=""){
+  el.innerHTML="";
   for(let r=0;r<6;r++){
-    const d=document.createElement("div");d.className="row";d.id="r"+r;
-    for(let c=0;c<5;c++){const t=document.createElement("div");t.className="tile";t.id="t"+r+"_"+c;d.appendChild(t)}
-    board.appendChild(d);
+    const d=document.createElement("div");d.className="row";d.id=prefix+"r"+r;
+    for(let c=0;c<5;c++){const t=document.createElement("div");t.className="tile";t.id=prefix+"t"+r+"_"+c;d.appendChild(t)}
+    el.appendChild(d);
   }
 }
 function build(word){
@@ -536,6 +574,7 @@ function shake(){const r=$("r"+row);r.classList.remove("shake");void r.offsetWid
 
 function key(k){
   if(mode==="watch")return;
+  if(mode==="couch"){if(ready)couchKey(k);return}
   if(!ready||busy)return;
   if(waiting){toast("Waiting for the host to start…");return}
   if(over){if(k==="Enter")newGame();return}
@@ -692,6 +731,7 @@ function renderVs(){
 }
 
 function openStats(){
+  overlay.classList.remove("couchRes");
   $("sPlayed").textContent=stats.played;
   $("sWin").textContent=stats.played?Math.round(stats.wins/stats.played*100):0;
   $("sCur").textContent=stats.cur;
@@ -738,6 +778,7 @@ async function shareChallenge(){
 function clearHash(){if(location.hash)history.replaceState(null,"",BASE)}
 
 function newGame(){
+  if(mode==="couch")return couchNext();
   if(mode==="watch"){toast("You're watching. Leave the stream to play your own game.",2200);return}
   if(busy)return;
   if(mode==="duo")return duoNext();
@@ -1230,6 +1271,115 @@ function openSheet(){const c=$("chat");if(!c.classList.contains("sheet"))return;
 function closeSheet(){const c=$("chat");c.classList.remove("open");$("chatInput").blur();renderStrip()}
 function updateSuggestBtn(){const v=$("chatInput").value.trim().toLowerCase();$("suggestBtn").disabled=!/^[a-z]{5}$/.test(v)}
 
+/* ---------- Same screen ----------
+   Two players share the keyboard and the word; each has a board. Turns alternate one guess at a
+   time (a player who has used all six rows is skipped). First to solve on their own board wins the
+   round; if both run out it's a draw. The starting player alternates every round. The keyboard
+   always shows the colors of whoever is to play, so neither inherits the other's clues by accident;
+   both boards stay in view, and reading the other board is part of the game. Rounds don't touch
+   the solo statistics. */
+let couch=null;
+function startCouch(){
+  if(stream||mode==="duo"||mode==="watch"){toast("Finish the current multiplayer mode first",2200);return}
+  if(innerWidth<900)toast("Same screen works best on a computer",2200);
+  couch={score:[0,0],starter:1,round:0};
+  mode="couch";chal=null;clearHash();document.body.classList.add("couch");
+  closeOverlays();couchRound();
+}
+function couchRound(){
+  gid++;
+  couch.ans=ANS[Math.floor(Math.random()*ANS.length)];VALID.add(couch.ans);
+  couch.starter=1-couch.starter;couch.turn=couch.starter;couch.round++;
+  couch.p=[{rows:[],res:[],keys:{}},{rows:[],res:[],keys:{}}];
+  couch.cur="";couch.busy=false;couch.over=false;couch.winner=null;
+  over=false;won=false;ans=couch.ans;toasts.innerHTML="";
+  makeBoard($("cg0"),"a");makeBoard($("cg1"),"b");
+  build(couch.ans); // fresh keyboard; the hidden solo board is unused in this mode
+  over=false;
+  couchPaint();
+  toast("Round "+couch.round+" · Player "+(couch.turn+1)+" starts",1600);
+}
+const cTile=(p,r,c)=>$((p?"b":"a")+"t"+r+"_"+c);
+function couchPaint(){
+  for(const p of [0,1]){
+    const el=$("cp"+p);
+    el.classList.toggle("active",!couch.over&&couch.turn===p);
+    el.classList.toggle("idle",!couch.over&&couch.turn!==p);
+    $("cs"+p).textContent=couch.score[p];
+  }
+  // keyboard shows the player to move
+  const keys=couch.p[couch.turn].keys;
+  kb.querySelectorAll(".key[id^='key-']").forEach(k=>{const s=keys[k.dataset.k];k.classList.remove("g","y","x");delete k.dataset.s;if(s){k.classList.add(s);k.dataset.s=s}});
+}
+function couchKey(k){
+  if(couch.busy)return;
+  if(couch.over){if(k==="Enter")couchNext();return}
+  const P=couch.p[couch.turn],r=P.rows.length;
+  if(k==="Enter")return couchSubmit();
+  if(k==="Backspace"){
+    if(couch.cur.length){couch.cur=couch.cur.slice(0,-1);const t=cTile(couch.turn,r,couch.cur.length);t.textContent="";t.classList.remove("filled")}
+    return;
+  }
+  if(/^[a-z]$/i.test(k)&&couch.cur.length<5){
+    const t=cTile(couch.turn,r,couch.cur.length);couch.cur+=k.toLowerCase();
+    t.textContent=k.toLowerCase();t.classList.remove("filled");void t.offsetWidth;t.classList.add("filled");
+  }
+}
+function couchSubmit(){
+  const p=couch.turn,P=couch.p[p],r=P.rows.length,g=couch.cur;
+  const shakeRow=()=>{const el=$((p?"b":"a")+"r"+r);el.classList.remove("shake");void el.offsetWidth;el.classList.add("shake")};
+  if(g.length<5){toast("Not enough letters");shakeRow();return}
+  if(!VALID.has(g)){toast("Not in word list");shakeRow();return}
+  couch.busy=true;couch.cur="";
+  const res=score(g,couch.ans),id=gid;
+  P.rows.push(g);P.res.push(res);
+  res.forEach((s,i)=>{const t=cTile(p,r,i);setTimeout(()=>{if(id!==gid)return;t.classList.remove("filled");t.classList.add("flip");setTimeout(()=>{if(id===gid)t.classList.add(s)},250)},i*300)});
+  setTimeout(()=>{
+    if(id!==gid)return;
+    const rank={x:1,y:2,g:3};
+    res.forEach((s,i)=>{const l=g[i],cur=P.keys[l];if(!cur||rank[s]>rank[cur])P.keys[l]=s});
+    couch.busy=false;
+    if(g===couch.ans){
+      for(let i=0;i<5;i++){const t=cTile(p,r,i);setTimeout(()=>{t.classList.remove("flip");t.classList.add("win")},i*100)}
+      return couchEnd(p);
+    }
+    const other=1-p;
+    if(couch.p[other].rows.length<6)couch.turn=other;
+    else if(P.rows.length>=6)return couchEnd(null);
+    if(couch.p[0].rows.length>=6&&couch.p[1].rows.length>=6)return couchEnd(null);
+    couchPaint();
+  },4*300+550);
+}
+function couchEnd(winner){
+  couch.over=true;couch.winner=winner;over=true;won=winner!==null;
+  if(winner!==null){couch.score[winner]++;toast("Player "+(winner+1)+" got it",2000)}
+  else toast(couch.ans.toUpperCase(),2000);
+  couchPaint();
+  lookup(couch.ans);
+  const id=gid;setTimeout(()=>{if(id===gid)openCouchResult()},2000);
+}
+function openCouchResult(){
+  const v=$("vsCard"),w=couch.winner,n=couch.p.map(P=>P.rows.length);
+  const sub=w===null?"Neither board found it":"Solved in "+n[w]+(n[w]===1?" guess":" guesses")+" · Player "+(2-w)+" had "+n[1-w]+(n[1-w]===1?" guess":" guesses");
+  v.innerHTML="";
+  const a=document.createElement("div");a.className="verdict";a.textContent=w===null?"A draw":"Player "+(w+1)+" wins";
+  const b2=document.createElement("div");b2.className="sub";b2.textContent=sub;
+  const c=document.createElement("div");c.className="sub";c.textContent="Score: "+couch.score[0]+" – "+couch.score[1];
+  v.append(a,b2,c);v.hidden=false;
+  renderWord();
+  $("playBtn").textContent="Next round";
+  overlay.classList.add("couchRes","open");duoOverlay.classList.remove("open");
+  overlay.querySelector("[data-close]").focus();
+}
+function couchNext(){
+  if(!couch.over&&(couch.p[0].rows.length||couch.p[1].rows.length)&&!confirm("Start a new word? This round won't count."))return;
+  closeOverlays();overlay.classList.remove("couchRes");couchRound();
+}
+function endCouch(){
+  couch=null;mode="solo";document.body.classList.remove("couch");overlay.classList.remove("couchRes");
+  closeOverlays();build();
+}
+
 function initFromHash(){
   const h=location.hash;
   let m=h.match(/^#c=([\w-]+)\.([1-6x])$/);
@@ -1271,13 +1421,18 @@ function openDuo(){
   const sb=$("streamBtn"),stop=$("stopStreamBtn");
   if(mode==="watch"){sb.hidden=true;$("streamBox").hidden=true;stop.hidden=false;stop.textContent="Stop watching"}
   else if(!stream){sb.hidden=false;sb.disabled=mode==="duo";sb.textContent=mode==="duo"?"Unavailable during a live match":"Start streaming"}
-  $("createBtn").disabled=!!stream||mode==="watch";
+  $("createBtn").disabled=!!stream||mode==="watch"||mode==="couch";
+  if(mode!=="watch"&&!stream&&mode==="couch"){sb.disabled=true;sb.textContent="Unavailable on the same screen"}
+  $("couchBtn").hidden=mode==="couch";$("endCouchBtn").hidden=mode!=="couch";
+  $("couchBtn").disabled=!!stream||mode==="duo"||mode==="watch";
   const cb=$("chalModeBtn"),canSend=over&&mode!=="duo";
   cb.textContent=mode==="duo"?"Unavailable during a live match":canSend?"Challenge with this word":"Start a word";
-  cb.disabled=mode==="duo"||mode==="watch";cb.classList.toggle("primary",canSend);
+  cb.disabled=mode==="duo"||mode==="watch"||mode==="couch";cb.classList.toggle("primary",canSend);
   overlay.classList.remove("open");duoOverlay.classList.add("open");
 }
 $("duoBtn").onclick=e=>{e.currentTarget.blur();openDuo()};
+$("couchBtn").onclick=startCouch;
+$("endCouchBtn").onclick=endCouch;
 $("chalModeBtn").onclick=()=>{if(over&&mode!=="duo")shareChallenge();else closeOverlays()};
 $("playBtn").onclick=newGame;
 $("shareBtn").onclick=share;
