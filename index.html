@@ -583,35 +583,51 @@ function submit(){
   },4*300+550);
 }
 
-// Answer lookup. Chinese + fallback phonetic: dict.json, built from the ECDICT dictionary by
-// tools/build-dict.py. IPA + English definition: dictionaryapi.dev. Machine translation (MyMemory)
-// only for a word dict.json lacks, e.g. a challenge link carrying a word outside the answer list.
+// Answer lookup, in two independent parts so neither waits on the other:
+//   zh: Chinese meanings + fallback phonetic from dict.json (built from ECDICT by tools/build-dict.py).
+//       Preloaded in the background at startup, so it is normally cached before a word ends.
+//       Machine translation (MyMemory) only for a word dict.json lacks, e.g. from a challenge link.
+//   en: IPA + English definition from dictionaryapi.dev, given up on after 5s.
+const fetchT=(u,ms)=>{const c=new AbortController(),t=setTimeout(()=>c.abort(),ms);return fetch(u,{signal:c.signal}).finally(()=>clearTimeout(t))};
 let ecdict=null;
-const loadEcdict=()=>ecdict||(ecdict=fetch("dict.json").then(r=>r.ok?r.json():{}).catch(()=>({})));
+function loadEcdict(){
+  // A failed or timed-out load is not cached, so the next call tries again.
+  return ecdict||(ecdict=fetchT("dict.json",20000).then(r=>{if(!r.ok)throw 0;return r.json()}).catch(()=>{ecdict=null;return null}));
+}
+async function machineZh(w){
+  try{
+    const d=await fetchT("https://api.mymemory.translated.net/get?q="+w+"&langpair=en|zh-CN",6000).then(r=>r.ok?r.json():null);
+    const c=d?[d.responseData&&d.responseData.translatedText].concat((d.matches||[]).map(m=>m.translation))
+      .filter(t=>t&&/[一-鿿]/.test(t)&&t.length<=12).map(t=>t.replace(/[。.]$/,"").trim()):[];
+    return c.length?[[...new Set(c)].slice(0,3).join("；")]:null;
+  }catch(e){return null}
+}
 const dict=new Map();
 function lookup(w){
   if(dict.has(w))return dict.get(w);
-  const out={};
-  const p=Promise.allSettled([
-    fetch("https://api.dictionaryapi.dev/api/v2/entries/en/"+w).then(r=>r.ok?r.json():null).then(d=>{
-      const e=d&&d[0];if(!e)return;
-      out.phon=e.phonetic||((e.phonetics||[]).find(x=>x.text)||{}).text||"";
-      out.def=(e.meanings||[]).slice(0,2).map(m=>m.partOfSpeech+". "+m.definitions[0].definition).join("  ");
-    }),
-    loadEcdict().then(d=>{const e=d[w];if(e){out.ecPhon=e[0];out.zh=e[1].split("\n")}})
-  ]).then(async()=>{
-    if(!out.phon&&out.ecPhon)out.phon="/"+out.ecPhon+"/";
-    if(!out.zh){
-      try{
-        const d=await fetch("https://api.mymemory.translated.net/get?q="+w+"&langpair=en|zh-CN").then(r=>r.ok?r.json():null);
-        const c=d?[d.responseData&&d.responseData.translatedText].concat((d.matches||[]).map(m=>m.translation))
-          .filter(t=>t&&/[\u4e00-\u9fff]/.test(t)&&t.length<=12).map(t=>t.replace(/[。.]$/,"").trim()):[];
-        if(c.length)out.zh=[[...new Set(c)].slice(0,3).join("；")];
-      }catch(e){}
-    }
-    return out;
+  const zh=loadEcdict().then(async d=>{
+    const e=d&&d[w];
+    return e?{zh:e[1].split("\n"),phon:e[0]?"/"+e[0]+"/":""}:{zh:await machineZh(w),phon:""};
   });
-  dict.set(w,p);return p;
+  const en=fetchT("https://api.dictionaryapi.dev/api/v2/entries/en/"+w,5000).then(r=>r.ok?r.json():null).then(d=>{
+    const e=d&&d[0];if(!e)return {};
+    return {phon:e.phonetic||((e.phonetics||[]).find(x=>x.text)||{}).text||"",def:(e.meanings||[]).slice(0,2).map(m=>m.partOfSpeech+". "+m.definitions[0].definition).join("  ")};
+  }).catch(()=>({}));
+  const all=Promise.all([zh,en]).then(([a,b])=>({zh:a.zh,phon:b.phon||a.phon,def:b.def}));
+  const entry={zh,en,all};dict.set(w,entry);return entry;
+}
+function renderZh(lines){
+  const zh=$("wZh");zh.textContent="";
+  if(!lines){zh.textContent="No translation found";return}
+  // One row per part of speech: the tag in a narrow italic gutter, meanings beside it.
+  // Each meaning stays whole; a row only wraps between meanings.
+  lines.forEach(line=>{
+    const m=line.match(/^((?:[a-z]+\.\s*)+)\s*(.*)$/),row=document.createElement("div");row.className="zl";
+    if(m){const pos=document.createElement("span");pos.className="pos";pos.textContent=m[1].trim();row.append(pos)}
+    const body=document.createElement("span");body.className="ms";
+    (m?m[2]:line).split("；").forEach((t,i,a)=>{const sp=document.createElement("span");sp.className="seg";sp.textContent=t+(i<a.length-1?"；":"");body.append(sp)});
+    row.append(body);zh.append(row);
+  });
 }
 function renderWord(){
   const card=$("wordCard");
@@ -621,23 +637,10 @@ function renderWord(){
   $("wWord").textContent=ans;
   $("wMore").href="https://dict.youdao.com/result?word="+ans+"&lang=en";
   $("wPhon").textContent="";$("wZh").textContent="Looking it up…";$("wDef").textContent="";
-  const w=ans,id=gid;
-  lookup(w).then(o=>{
-    if(id!==gid)return;
-    $("wPhon").textContent=o.phon||"";
-    const zh=$("wZh");zh.textContent="";
-    if(!o.zh)zh.textContent="No translation found";
-    // One row per part of speech: the tag in a narrow italic gutter, meanings beside it.
-    // Each meaning stays whole; a row only wraps between meanings.
-    else o.zh.forEach(line=>{
-      const m=line.match(/^((?:[a-z]+\.\s*)+)\s*(.*)$/),row=document.createElement("div");row.className="zl";
-      if(m){const pos=document.createElement("span");pos.className="pos";pos.textContent=m[1].trim();row.append(pos)}
-      const body=document.createElement("span");body.className="ms";
-      (m?m[2]:line).split("；").forEach((t,i,a)=>{const sp=document.createElement("span");sp.className="seg";sp.textContent=t+(i<a.length-1?"；":"");body.append(sp)});
-      row.append(body);zh.append(row);
-    });
-    $("wDef").textContent=o.def||"";
-  });
+  const w=ans,id=gid,L=lookup(w);let ipa=false;
+  // Each part appears as soon as it lands. A dictionaryapi IPA beats ECDICT's older transcription.
+  L.zh.then(o=>{if(id!==gid)return;renderZh(o.zh);if(!ipa&&o.phon)$("wPhon").textContent=o.phon});
+  L.en.then(o=>{if(id!==gid)return;if(o.phon){ipa=true;$("wPhon").textContent=o.phon}$("wDef").textContent=o.def||""});
 }
 
 function finish(win,r,id){
@@ -648,7 +651,7 @@ function finish(win,r,id){
   else stats.cur=0;
   saveStats();
   sync();checkRound();
-  if(stream)lookup(ans).then(o=>{if(id===gid)addMsg({kind:"word",word:ans,won:win,n:r+1,zh:(o.zh||[])[0]||"",phon:o.phon||""})});
+  if(stream)lookup(ans).all.then(o=>{if(id===gid)addMsg({kind:"word",word:ans,won:win,n:r+1,zh:(o.zh||[])[0]||"",phon:o.phon||""})});
   setTimeout(()=>{if(id===gid)openStats()},win?2200:1800);
 }
 
@@ -1287,6 +1290,8 @@ addEventListener("hashchange",()=>location.reload());
 
 build();
 loadWords().then(m=>{$("source").textContent=m;ready=true;initFromHash()});
+// Fetch the dictionary while the first word is being played, not when it ends.
+setTimeout(loadEcdict,1500);
 </script>
 </body>
 </html>
