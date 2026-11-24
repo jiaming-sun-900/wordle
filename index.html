@@ -327,7 +327,21 @@ body.couch #kb{max-width:calc(540*var(--u));margin:0 auto}
 .cboard.active .cturn{visibility:visible}
 .cscore{margin-left:auto;font-size:30px;font-weight:600;font-variation-settings:"opsz" 60;line-height:1}
 .couchRes .resultWrap>.modal>h2,.couchRes .stats,.couchRes .dist,.couchRes #shareBtn,.couchRes #chalBtn{display:none}
-.couchRes .vs{margin-top:20px}
+/* Same-screen result: no inner frame (it fought the close button); hierarchy from size and weight. */
+.couchRes .resultWrap>.modal{padding:30px 36px 34px}
+.couchRes .vs{border:0;padding:0;margin:6px 0 0}
+.cv-round{font-size:17px;font-style:italic;color:var(--muted)}
+.cv-verdict{font-size:38px;font-weight:600;font-variation-settings:"opsz" 60;line-height:1.1;margin-top:4px}
+.cv-board{display:grid;grid-template-columns:1fr 1px 1fr;align-items:center;margin:30px 0 0}
+.cv-sep{align-self:stretch;background:var(--t20)}
+.cv-p{display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--muted)}
+.cv-p.win{color:var(--fg)}
+.cv-name{font-size:18px}
+.cv-p.win .cv-name{font-weight:600}
+.cv-score{font-size:52px;font-weight:500;font-variation-settings:"opsz" 60;line-height:1}
+.cv-n{font-size:17px;font-style:italic}
+.cv-p.win .cv-n{color:var(--green);font-style:normal;font-weight:600}
+.couchRes .actions{margin-top:34px}
 @media (prefers-reduced-motion:reduce){.tile,.row{animation:none!important}*{transition:none!important}.liveDot{animation:none}}
 </style>
 </head>
@@ -1359,13 +1373,19 @@ function couchEnd(winner){
   const id=gid;setTimeout(()=>{if(id===gid)openCouchResult()},2000);
 }
 function openCouchResult(){
+  // Round label, the verdict, then a two-column scoreboard: each player's running score with how
+  // their round went underneath. The round's winner is set in full ink; the other column recedes.
   const v=$("vsCard"),w=couch.winner,n=couch.p.map(P=>P.rows.length);
-  const sub=w===null?"Neither board found it":"Solved in "+n[w]+(n[w]===1?" guess":" guesses")+" · Player "+(2-w)+" had "+n[1-w]+(n[1-w]===1?" guess":" guesses");
+  const g=k=>k+(k===1?" guess":" guesses");
   v.innerHTML="";
-  const a=document.createElement("div");a.className="verdict";a.textContent=w===null?"A draw":"Player "+(w+1)+" wins";
-  const b2=document.createElement("div");b2.className="sub";b2.textContent=sub;
-  const c=document.createElement("div");c.className="sub";c.textContent="Score: "+couch.score[0]+" – "+couch.score[1];
-  v.append(a,b2,c);v.hidden=false;
+  v.append(el("div","cv-round","Round "+couch.round),el("div","cv-verdict",w===null?"A draw":"Player "+(w+1)+" wins"));
+  const sb=el("div","cv-board");
+  [0,1].forEach(p=>{
+    const col=el("div","cv-p"+(w===p?" win":""));
+    col.append(el("div","cv-name","Player "+(p+1)),el("div","cv-score",String(couch.score[p])),el("div","cv-n",w===p?"Solved in "+n[p]:g(n[p])));
+    sb.append(col);if(!p)sb.append(el("div","cv-sep"));
+  });
+  v.append(sb);v.hidden=false;
   renderWord();
   $("playBtn").textContent="Next round";
   overlay.classList.add("couchRes","open");duoOverlay.classList.remove("open");
