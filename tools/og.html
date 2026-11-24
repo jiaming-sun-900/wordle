@@ -1,0 +1,32 @@
+<!doctype html>
+<!-- Link preview card (og.png, 1200x630). Render: see tools/render-images.sh -->
+<html><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400..700;1,6..72,400..700&display=swap" rel="stylesheet">
+<style>
+:root{--ivory:#f0eee6;--ink:#1f1e1d;--green:#4f7d52;--amber:#b07f22}
+*{box-sizing:border-box;margin:0}
+body{width:1200px;height:630px;background:var(--ivory);color:var(--ink);font-family:"Newsreader",serif;display:flex;align-items:center;padding:0 80px;gap:56px;overflow:hidden}
+.copy{flex:1}
+h1{white-space:nowrap;font-size:104px;font-weight:600;font-variation-settings:"opsz" 72;line-height:1;letter-spacing:-.01em}
+p{white-space:nowrap;font-size:33px;margin-top:22px;color:color-mix(in srgb,var(--ink) 65%,var(--ivory));font-style:italic}
+.modes{white-space:nowrap;font-size:25px;margin-top:40px;color:color-mix(in srgb,var(--ink) 75%,var(--ivory))}
+.boards{display:flex;gap:22px;flex:none}
+.b{display:grid;grid-template-columns:repeat(5,42px);gap:6px}
+.t{height:42px;border-radius:8px;border:2px solid color-mix(in srgb,var(--ink) 30%,var(--ivory));display:flex;align-items:center;justify-content:center;font:600 25px/1 "Newsreader",serif;padding-top:5px;color:var(--ivory)}
+.g{background:var(--green);border-color:transparent}.y{background:var(--amber);border-color:transparent}
+.x{background:color-mix(in srgb,var(--ink) 12%,var(--ivory));border-color:transparent;color:color-mix(in srgb,var(--ink) 62%,var(--ivory))}
+</style></head><body>
+<div class="copy">
+<h1>Word <i>Duo</i></h1>
+<p>A five-letter word game for two</p>
+<div class="modes">Live match · Watch &amp; chat · Challenge</div>
+</div>
+<div class="boards" id="boards"></div>
+<script>
+// Two boards solving the same word, SNAIL, by different paths.
+const boards=[[["DIRTY","xyxxx"],["CHINA","xxyyy"],["SNAIL","ggggg"]],[["CRANE","xxgyx"],["NAILS","yyyyy"],["SNAIL","ggggg"]]];
+for(const rows of boards){const b=document.createElement("div");b.className="b";
+  for(let r=0;r<6;r++)for(let c=0;c<5;c++){const t=document.createElement("div"),row=rows[r];t.className="t"+(row?" "+row[1][c]:"");t.textContent=row?row[0][c]:"";b.append(t)}
+  document.getElementById("boards").append(b)}
+</script>
+</body></html>

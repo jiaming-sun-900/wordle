@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Two tiles, one word: the ochre tile sits behind, the green one in front carries the W. -->
+  <rect x="11" y="11" width="19" height="19" rx="4.5" fill="#b07f22"/>
+  <rect x="2" y="2" width="20" height="20" rx="4.5" fill="#4f7d52" stroke="#f0eee6" stroke-width="2"/>
+  <text x="12" y="18.2" font-family="Georgia,'Times New Roman',serif" font-size="15" font-weight="700" text-anchor="middle" fill="#f0eee6">W</text>
+</svg>
