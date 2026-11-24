@@ -175,11 +175,12 @@ body.duo #duoBar{display:flex}
 .close{position:absolute;top:8px;right:8px}
 /* Play together: the two modes sit side by side as equals, split by a hairline.
    Each column ends in its action, pinned to the bottom so the buttons line up. */
-.duoModal{max-width:780px;padding:24px 36px 34px}
+.duoModal{max-width:1080px;padding:24px 36px 34px}
 .duoModal h2{margin:10px 0 22px}
-.modes{display:grid;grid-template-columns:1fr 1fr}
-.mode{display:flex;flex-direction:column;min-width:0;padding:0 32px}
-.mode:first-child{padding-left:0;border-right:1px solid var(--t20)}
+.modes{display:grid;grid-template-columns:repeat(3,1fr)}
+.mode{display:flex;flex-direction:column;min-width:0;padding:0 30px}
+.mode:not(:last-child){border-right:1px solid var(--t20)}
+.mode:first-child{padding-left:0}
 .mode:last-child{padding-right:0}
 .mode .glyph{width:30px;height:30px;opacity:.75;margin-bottom:10px}
 .mode h3{margin:0}
@@ -188,11 +189,11 @@ body.duo #duoBar{display:flex}
 .modeAct #roomBox{align-self:stretch}
 .modeAct #roomStatus{margin:8px 0 0;font-size:17px}
 .linkrow{margin-top:0}
-@media (max-width:720px){
+@media (max-width:900px){
   .duoModal{padding:22px 24px 28px}
   .modes{grid-template-columns:1fr}
   .mode,.mode:first-child,.mode:last-child{padding:0}
-  .mode:first-child{border-right:0;border-bottom:1px solid var(--t20);padding-bottom:24px;margin-bottom:22px}
+  .mode:not(:last-child){border-right:0;border-bottom:1px solid var(--t20);padding-bottom:24px;margin-bottom:22px}
 }
 .stats{display:flex;justify-content:center;gap:12px;margin-bottom:22px}
 .stat{flex:1;max-width:80px;text-align:center}
@@ -240,7 +241,59 @@ body.duo #duoBar{display:flex}
 .linkrow{display:flex;gap:8px;margin-top:10px}
 .linkrow input{flex:1;min-width:0;border:1px solid var(--t20);background:var(--t08);color:var(--fg);border-radius:8px;padding:8px 10px;font:16px ui-monospace,Menlo,monospace}
 .linkrow .btn{padding:calc(8px + var(--nudge)) 18px 8px;font-size:17px}
-@media (prefers-reduced-motion:reduce){.tile,.row{animation:none!important}*{transition:none!important}}
+/* ---------- Watch & chat ----------
+   Wide screens (>=1000px): the chat docks on the right for both sides and the game centres in
+   what is left. Phones: the viewer has no game keyboard, so the chat takes that space under the
+   board; the player keeps the full game and gets a one-line strip above the keyboard (latest
+   message, a one-tap "Use" chip for suggestions) that opens the chat as a bottom sheet. */
+#chat{display:none;flex-direction:column;background:var(--bg);color:var(--fg);min-height:0}
+body.chatOn #chat{display:flex}
+#chat.dock{position:fixed;top:0;right:0;bottom:0;width:360px;border-left:1px solid var(--t20);z-index:5}
+body.chatDocked{padding-right:360px}
+#chat.inline{flex:0 0 44%;border-top:1px solid var(--t20)}
+#chat.sheet{position:fixed;left:0;right:0;bottom:0;height:min(72dvh,560px);border:1px solid var(--t20);border-bottom:0;border-radius:18px 18px 0 0;z-index:15;
+  box-shadow:0 -10px 40px color-mix(in srgb,var(--ink) 18%,transparent);transform:translateY(105%);transition:transform .32s var(--ease)}
+#chat.sheet.open{transform:none}
+#chatClose{display:none}
+#chat.sheet #chatClose{display:flex;margin-left:auto}
+body.watching #kb,body.watching #source{display:none}
+body:not(.watching) #suggestBtn{display:none}
+.chatHead{display:flex;align-items:baseline;gap:10px;padding:14px 18px 12px;border-bottom:1px solid var(--t20)}
+#chat.inline .chatHead{padding:10px 16px 8px}
+.chatTitle{font-size:19px;font-weight:600}
+.chatMeta{font-size:16px;color:var(--muted);font-style:italic}
+.liveDot{width:9px;height:9px;border-radius:50%;background:var(--green);flex:none;align-self:center;box-shadow:0 0 0 0 color-mix(in srgb,var(--green) 60%,transparent);animation:live 2s ease-out infinite}
+.liveDot.off{background:var(--t35);animation:none}
+@keyframes live{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--green) 55%,transparent)}70%,100%{box-shadow:0 0 0 7px transparent}}
+#chatLog{flex:1;min-height:0;overflow:auto;padding:14px 16px;display:flex;flex-direction:column;gap:10px;overscroll-behavior:contain}
+.msg{max-width:86%;align-self:flex-start;display:flex;flex-direction:column;align-items:flex-start;gap:3px}
+.msg .who{font-size:16px;font-style:italic;color:var(--muted);padding:0 4px}
+.msg .txt{background:var(--t08);padding:9px 13px 8px;border-radius:14px 14px 14px 4px;font-size:18px;line-height:1.4;overflow-wrap:anywhere}
+.msg.me{align-self:flex-end;align-items:flex-end}
+.msg.me .txt{background:var(--fg);color:var(--bg);border-radius:14px 14px 4px 14px}
+.msg.sys{align-self:center;max-width:100%;font-size:16px;font-style:italic;color:var(--muted);text-align:center}
+.txt.sug{display:flex;align-items:center;gap:10px}
+.sugLbl{font-style:italic;opacity:.75}
+.sugWord{font-weight:600;letter-spacing:.14em;text-transform:uppercase;font-variation-settings:"opsz" 60}
+.usedLbl{font-size:16px;font-style:italic;color:var(--muted)}
+.useBtn{padding:calc(6px + var(--nudge)) 14px 6px;font-size:16px}
+.wordMsg{align-self:stretch;max-width:none;align-items:flex-start;border:1px solid var(--t20);border-radius:12px;padding:12px 14px;gap:0}
+.wm-lbl{font-size:16px;font-style:italic;color:var(--muted)}
+.wm-w{font-size:26px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;font-variation-settings:"opsz" 60;line-height:1.15}
+.wm-ph{font-size:16px;color:var(--muted)}
+.wm-ph:empty,.wm-zh:empty{display:none}
+.wm-zh{font-size:19px;margin-top:6px;font-family:"PingFang SC","Songti SC","Noto Serif SC",serif}
+.chatInput{display:flex;gap:8px;padding:10px 12px calc(10px + env(safe-area-inset-bottom));border-top:1px solid var(--t20)}
+.chatInput input{flex:1;min-width:0;font:18px "Newsreader","Times New Roman",serif;padding:10px 14px;border:1px solid var(--t20);border-radius:999px;background:var(--t08);color:var(--fg)}
+.chatInput input:focus{outline:none;border-color:var(--t50)}
+.chatInput .btn{padding:calc(9px + var(--nudge)) 16px 9px;font-size:17px}
+#chatStrip{display:none;align-items:center;gap:10px;margin:0 12px calc(8*var(--u));padding:0 8px 0 14px;height:48px;border:1px solid var(--t20);border-radius:14px;cursor:pointer;font-size:17px;-webkit-tap-highlight-color:transparent}
+body.chatSheet #chatStrip{display:flex}
+#stripText{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#stripUse{padding:calc(6px + var(--nudge)) 12px 6px;font-size:16px;flex:none}
+#stripUnread{flex:none;min-width:24px;height:24px;border-radius:12px;background:var(--fg);color:var(--bg);font:600 16px/24px "Newsreader",serif;text-align:center;padding:0 6px}
+#stripUnread[hidden],#stripUse[hidden]{display:none}
+@media (prefers-reduced-motion:reduce){.tile,.row{animation:none!important}*{transition:none!important}.liveDot{animation:none}}
 </style>
 </head>
 <body>
@@ -267,6 +320,11 @@ body.duo #duoBar{display:flex}
 <div class="oppWrap">them<div class="mini" id="mini"></div></div>
 </div>
 <div id="boardWrap"><div id="board"></div></div>
+</div>
+<div id="chatStrip" role="button" tabindex="0" aria-label="Open chat">
+<span class="liveDot" aria-hidden="true"></span><span id="stripText"></span>
+<button class="btn primary" id="stripUse" type="button" hidden></button>
+<span id="stripUnread" hidden></span>
 </div>
 <div>
 <div id="kb"></div>
@@ -311,6 +369,20 @@ body.duo #duoBar{display:flex}
 <h2 id="duoTitle">Play together</h2>
 <div class="modes">
 <section class="mode">
+<svg class="glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+<h3>Watch &amp; chat</h3>
+<p class="tag">One plays, the other cheers</p>
+<p>Stream your game. They watch every letter land, chat alongside, and can suggest a word you drop in with one tap.</p>
+<div class="modeAct">
+<button class="btn primary" id="streamBtn">Start streaming</button>
+<div id="streamBox" hidden>
+<div class="linkrow"><input id="streamLink" readonly aria-label="Stream link"><button class="btn primary" id="copyStream">Copy</button></div>
+<p id="streamStatus"></p>
+</div>
+<button class="btn" id="stopStreamBtn" hidden>Stop streaming</button>
+</div>
+</section>
+<section class="mode">
 <svg class="glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="2"/><path d="M7.8 7.8a6 6 0 0 0 0 8.4M16.2 7.8a6 6 0 0 1 0 8.4M4.9 4.9a10 10 0 0 0 0 14.2M19.1 4.9a10 10 0 0 1 0 14.2"/></svg>
 <h3>Live match</h3>
 <p class="tag">Both online, same moment</p>
@@ -336,6 +408,21 @@ body.duo #duoBar{display:flex}
 </div>
 </div>
 </div>
+
+<aside id="chat" aria-label="Live chat">
+<div class="chatHead">
+<span class="liveDot" id="chatDot" aria-hidden="true"></span>
+<div class="chatTitle">Live chat</div>
+<div class="chatMeta" id="chatMeta"></div>
+<button class="icon" id="chatClose" aria-label="Close chat"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></button>
+</div>
+<div id="chatLog" aria-live="polite"></div>
+<form id="chatForm" class="chatInput" autocomplete="off">
+<input id="chatInput" maxlength="280" placeholder="Say something…" aria-label="Message" enterkeyhint="send">
+<button class="btn" id="suggestBtn" type="button" disabled title="Suggest this as a guess">Suggest</button>
+<button class="btn primary" type="submit">Send</button>
+</form>
+</aside>
 
 <script>
 const FB="crane slate trace flame brick chair plant stone grape house light storm beach dream blues chord stage drums notes scale tempo knife ghost lemon river ocean pearl quiet sweet happy brave cloud dance eagle fable giant honey irony jolly karma maple noble orbit piano queen radio solar tiger ultra vivid whale young zebra adapt bloom crisp delta ember frost glide haste input joint lunar mirth nerve oasis prism quilt rover spice tonic unity vapor witty yeast zesty audio basic cabin daisy enjoy flock gloom hinge index jumpy koala ledge mango nylon olive pouch rumor sauce trend upset vault wrist alarm blend charm dwell epoch flair grind heart".split(" ");
@@ -401,6 +488,14 @@ function toast(text,ms=1200){
 
 const BACKSPACE='<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 5H8l-6 7 6 7h13z"/><path d="M17 9l-6 6M11 9l6 6"/></svg>';
 
+function makeBoard(){
+  board.innerHTML="";
+  for(let r=0;r<6;r++){
+    const d=document.createElement("div");d.className="row";d.id="r"+r;
+    for(let c=0;c<5;c++){const t=document.createElement("div");t.className="tile";t.id="t"+r+"_"+c;d.appendChild(t)}
+    board.appendChild(d);
+  }
+}
 function build(word){
   gid++;
   ans=word||ANS[Math.floor(Math.random()*ANS.length)];
@@ -409,12 +504,7 @@ function build(word){
   results=[];guesses=[];
   b=Array.from({length:6},()=>Array(5).fill(""));
   toasts.innerHTML="";
-  board.innerHTML="";
-  for(let r=0;r<6;r++){
-    const d=document.createElement("div");d.className="row";d.id="r"+r;
-    for(let c=0;c<5;c++){const t=document.createElement("div");t.className="tile";t.id="t"+r+"_"+c;d.appendChild(t)}
-    board.appendChild(d);
-  }
+  makeBoard();
   kb.innerHTML="";
   ["qwertyuiop","-asdfghjkl-","EzxcvbnmB"].forEach(s=>{
     const d=document.createElement("div");d.className="krow";
@@ -428,24 +518,26 @@ function build(word){
     });
     kb.appendChild(d);
   });
+  streamSync();
 }
 
 function shake(){const r=$("r"+row);r.classList.remove("shake");void r.offsetWidth;r.classList.add("shake")}
 
 function key(k){
+  if(mode==="watch")return;
   if(!ready||busy)return;
   if(waiting){toast("Waiting for the host to start…");return}
   if(over){if(k==="Enter")newGame();return}
   if(k==="Enter")return submit();
   if(k==="Backspace"){
-    if(col>0){col--;b[row][col]="";const t=$("t"+row+"_"+col);t.textContent="";t.classList.remove("filled");duoSync()}
+    if(col>0){col--;b[row][col]="";const t=$("t"+row+"_"+col);t.textContent="";t.classList.remove("filled");sync()}
     return;
   }
   if(/^[a-z]$/i.test(k)&&col<5){
     b[row][col]=k.toLowerCase();
     const t=$("t"+row+"_"+col);t.textContent=b[row][col];
     t.classList.remove("filled");void t.offsetWidth;t.classList.add("filled");
-    col++;duoSync();
+    col++;sync();
   }
 }
 
@@ -470,6 +562,7 @@ function submit(){
   busy=true;
   const id=gid,r=row,res=score(g,ans);
   results.push(res);guesses.push(g);
+  streamSync(); // viewers flip the row in step with the player
   res.forEach((s,i)=>{
     const t=$("t"+r+"_"+i);
     setTimeout(()=>{if(id!==gid)return;t.classList.remove("filled");t.classList.add("flip");setTimeout(()=>{if(id===gid)t.classList.add(s)},250)},i*300);
@@ -486,7 +579,7 @@ function submit(){
     }
     row++;col=0;
     if(row===6){over=true;toast(ans.toUpperCase(),0);finish(false,-1,id);return}
-    duoSync();
+    sync();
   },4*300+550);
 }
 
@@ -554,7 +647,8 @@ function finish(win,r,id){
   if(win){stats.wins++;stats.cur++;stats.max=Math.max(stats.max,stats.cur);stats.dist[r]++}
   else stats.cur=0;
   saveStats();
-  duoSync();checkRound();
+  sync();checkRound();
+  if(stream)lookup(ans).then(o=>{if(id===gid)addMsg({kind:"word",word:ans,won:win,n:r+1,zh:(o.zh||[])[0]||"",phon:o.phon||""})});
   setTimeout(()=>{if(id===gid)openStats()},win?2200:1800);
 }
 
@@ -630,6 +724,7 @@ async function shareChallenge(){
 function clearHash(){if(location.hash)history.replaceState(null,"",BASE)}
 
 function newGame(){
+  if(mode==="watch"){toast("You're watching. Leave the stream to play your own game.",2200);return}
   if(busy)return;
   if(mode==="duo")return duoNext();
   if(!over&&row>0){
@@ -680,6 +775,9 @@ function wireConn(c){
     }else{
       waiting=!round;renderDuo();
       if(round)duoSync();
+      // Ask for the round until it arrives instead of trusting one message to land.
+      let tries=0;const t=setInterval(()=>{if(conn!==c||!waiting||++tries>20)return clearInterval(t);send({t:"hello"})},1500);
+      send({t:"hello"});
     }
   });
   c.on("data",onData);
@@ -689,6 +787,12 @@ function wireConn(c){
 
 function onData(d){
   if(!d||typeof d!=="object")return;
+  if(oppGone){oppGone=false;renderDuo()}
+  if(d.t==="hello"&&isHost){
+    if(mode!=="duo")enterDuo();
+    if(!round)startRound();else duoSync();
+    return;
+  }
   if(d.t==="state"){
     if(!isHost&&d.n>round){
       const w=dec(d.w);if(!w)return;
@@ -781,7 +885,7 @@ async function joinRoom(id){
     await loadPeer();
     peer=await openPeer();
     peer.on("error",e=>{if(e.type==="peer-unavailable"){$("duoStatus").textContent="Room not found, or the host has left";toast("Can't reach the room. The host may have closed the page.",3000)}});
-    wireConn(peer.connect(id,{reliable:true}));
+    wireConn(peer.connect(id,{reliable:true,serialization:"json"}));
   }catch(e){
     $("duoStatus").textContent="Connection failed";
     toast("Couldn't connect. Check your connection.",2500);
@@ -798,6 +902,234 @@ function leaveDuo(){
   closeOverlays();build();
 }
 
+/* ---------- Watch & chat: one plays, others watch the board live and chat ----------
+   The player's page is the hub. It pushes its whole board on every change, keeps the chat
+   history, and relays each viewer's messages to the rest. Viewers render the board from those
+   snapshots and never run the game themselves. */
+let stream=null;  // player side: {peer, viewers: Map(peerId -> conn)}
+let watch=null;   // viewer side: {peer, conn, g, painted, overShown, ended}
+let chatLog=[],unread=0;
+const CHAT_MAX=120,TEXT_MAX=280;
+const myId=()=>watch?(watch.peer&&watch.peer.id)||"viewer":"player";
+
+function sync(){duoSync();streamSync()}
+function boardState(){
+  const typing=!over&&!busy&&row===guesses.length;
+  return {t:"board",g:gid,rows:guesses.slice(),res:results.map(r=>r.join("")),cur:typing?b[row].join(""):"",over,won,w:over?ans:null};
+}
+function broadcast(m,except){
+  if(!stream)return;
+  for(const c of stream.viewers.values())if(c!==except&&c.open)try{c.send(m)}catch(e){}
+}
+function streamSync(){if(stream&&stream.viewers.size)broadcast(boardState())}
+
+function cleanMsg(d,sid){
+  const kind=d.kind==="sug"?"sug":"msg";
+  if(kind==="sug"){const w=String(d.word||"").toLowerCase();return /^[a-z]{5}$/.test(w)?{kind,word:w,from:"viewer",sid}:null}
+  const text=String(d.text||"").replace(/\s+/g," ").trim().slice(0,TEXT_MAX);
+  return text?{kind,text,from:d.from==="player"?"player":"viewer",sid}:null;
+}
+
+/* ----- player side ----- */
+async function startStream(){
+  if(mode==="duo"){toast("Leave the live match first");return}
+  const btn=$("streamBtn");btn.disabled=true;btn.textContent="Starting…";
+  try{
+    await loadPeer();
+    let p=null;
+    for(let i=0;i<3&&!p;i++){try{p=await openPeer(rid())}catch(e){if(e.type!=="unavailable-id")throw e}}
+    if(!p)throw new Error("id");
+    stream={peer:p,viewers:new Map()};chatLog=[];unread=0;
+    p.on("connection",c=>{
+      const admit=()=>{if(stream.viewers.get(c.peer)===c)return;stream.viewers.set(c.peer,c);
+        try{c.send(boardState());c.send({t:"history",log:chatLog.slice(-60)})}catch(e){}
+        addMsg({kind:"sys",text:"Someone started watching"});toast("Someone is watching",1800);renderChat()};
+      c.on("open",admit);
+      c.on("data",d=>{
+        if(!d||typeof d!=="object")return;
+        if(d.t==="hello"){admit();try{c.send(boardState())}catch(e){}return}
+        if(d.t==="chat"){const m=cleanMsg(d,c.peer);if(!m)return;addMsg(m);broadcast({t:"chat",...m},c)}
+      });
+      c.on("close",()=>{if(stream&&stream.viewers.get(c.peer)===c){stream.viewers.delete(c.peer);addMsg({kind:"sys",text:"A viewer left"});renderChat()}});
+      c.on("error",()=>{});
+    });
+    p.on("disconnected",()=>{try{p.reconnect()}catch(e){}});
+    $("streamLink").value=BASE+"#watch="+p.id;
+    $("streamBox").hidden=false;btn.hidden=true;$("stopStreamBtn").hidden=false;
+    $("streamStatus").textContent="Send them this link. They'll see your board the moment they open it.";
+    document.body.classList.add("chatOn");placeChat();renderChat();
+  }catch(e){
+    btn.disabled=false;btn.textContent="Start streaming";
+    toast(e.message==="load"?"Couldn't load the multiplayer library. Check your connection.":"Couldn't start the stream. Try again in a moment.",2500);
+  }
+}
+function stopStream(){
+  if(!stream)return;
+  for(const c of stream.viewers.values())try{c.close()}catch(e){}
+  try{stream.peer.destroy()}catch(e){}
+  stream=null;chatLog=[];unread=0;
+  document.body.classList.remove("chatOn","chatDocked");closeSheet();placeChat();
+  $("streamBox").hidden=true;$("stopStreamBtn").hidden=true;
+  const btn=$("streamBtn");btn.hidden=false;btn.disabled=false;btn.textContent="Start streaming";
+}
+function useSuggestion(w,m){
+  if(mode==="watch"||!ready)return;
+  if(over){toast("This word is done. Start the next one first.");return}
+  if(busy)return;
+  if(m){m.used=true;renderChat()}
+  while(col>0)key("Backspace");
+  for(const ch of w)key(ch);
+  closeSheet();toast("Dropped in. Press Enter to guess.",1800);
+}
+
+/* ----- viewer side ----- */
+async function joinWatch(id){
+  mode="watch";watch={peer:null,conn:null,g:null,painted:0,overShown:false,ended:false};
+  document.body.classList.add("watching","chatOn");
+  makeBoard();placeChat();renderChat("Connecting…");
+  try{
+    await loadPeer();
+    watch.peer=await openPeer();
+    watch.peer.on("error",e=>{if(e.type==="peer-unavailable")endWatch("Stream not found. The player may have closed the page.")});
+    const c=watch.conn=watch.peer.connect(id,{reliable:true,serialization:"json"});
+    c.on("open",()=>{
+      renderChat();
+      let tries=0;const t=setInterval(()=>{if(!watch||watch.conn!==c||watch.g!==null||++tries>20)return clearInterval(t);try{c.send({t:"hello"})}catch(e){}},1500);
+      try{c.send({t:"hello"})}catch(e){}
+    });
+    c.on("data",viewerData);
+    c.on("close",()=>endWatch("The stream ended"));
+    c.on("error",()=>{});
+  }catch(e){endWatch("Couldn't connect. Check your connection.")}
+}
+function endWatch(text){
+  if(!watch||watch.ended)return;
+  watch.ended=true;addMsg({kind:"sys",text});renderChat();
+}
+function viewerData(d){
+  if(!d||typeof d!=="object"||!watch)return;
+  if(d.t==="board")return paintFromState(d);
+  if(d.t==="history"&&Array.isArray(d.log)){
+    chatLog=d.log.map(m=>m&&m.kind==="sys"?{kind:"sys",text:String(m.text||"").slice(0,TEXT_MAX)}:m&&m.kind==="word"?m:cleanMsg(m||{},m&&m.sid)).filter(Boolean).slice(-CHAT_MAX);
+    return renderChat();
+  }
+  if(d.t==="chat"){
+    if(d.kind==="sys")return addMsg({kind:"sys",text:String(d.text||"").slice(0,TEXT_MAX)});
+    if(d.kind==="word")return addMsg({kind:"word",word:String(d.word||"").slice(0,5),won:!!d.won,n:d.n|0,zh:String(d.zh||"").slice(0,80),phon:String(d.phon||"").slice(0,40)});
+    const m=cleanMsg(d,d.sid);if(m)addMsg(m);
+  }
+}
+function paintFromState(s){
+  const rows=Array.isArray(s.rows)?s.rows.slice(0,6).map(w=>String(w).toLowerCase().replace(/[^a-z]/g,"").slice(0,5)):[];
+  const res=Array.isArray(s.res)?s.res.slice(0,6).map(String):[];
+  if(s.g!==watch.g){
+    if(watch.g!==null)addMsg({kind:"sys",text:"New word"});
+    watch.g=s.g;watch.painted=0;watch.overShown=false;watch.first=true;makeBoard();renderChat();
+  }
+  for(let r=watch.painted;r<rows.length;r++){
+    const w=rows[r],rs=res[r]||"",fresh=!watch.first;
+    for(let i=0;i<5;i++){
+      const t=$("t"+r+"_"+i);if(!t)continue;
+      t.textContent=w[i]||"";t.className="tile";
+      const cls=/[gyx]/.test(rs[i])?rs[i]:"x";
+      if(fresh){setTimeout(()=>{t.classList.add("flip");setTimeout(()=>t.classList.add(cls),250)},i*300)}
+      else t.classList.add(cls);
+    }
+  }
+  watch.painted=rows.length;watch.first=false;
+  const cr=rows.length;
+  if(cr<6){
+    const cur=String(s.cur||"").toLowerCase().replace(/[^a-z]/g,"").slice(0,5);
+    for(let i=0;i<5;i++){const t=$("t"+cr+"_"+i);if(!t)continue;t.textContent=cur[i]||"";t.className="tile"+(cur[i]?" filled":"")}
+  }
+  if(s.over&&!watch.overShown){
+    watch.overShown=true;
+    if(s.won)setTimeout(()=>toast(WIN_MSG[Math.max(0,rows.length-1)]||"Got it",2000),1700);
+  }
+}
+
+/* ----- chat UI, shared ----- */
+function addMsg(m){
+  chatLog.push(m);if(chatLog.length>CHAT_MAX)chatLog.shift();
+  if(stream&&m.kind==="word")broadcast({t:"chat",...m});
+  if(m.kind!=="sys"&&m.sid!==myId()&&!isChatVisible())unread++;
+  renderChat();
+}
+function sendChat(asSuggestion){
+  const inp=$("chatInput"),raw=inp.value.trim();if(!raw)return;
+  if(asSuggestion){
+    const w=raw.toLowerCase();
+    if(!/^[a-z]{5}$/.test(w)){toast("A suggestion is one 5-letter word");return}
+    if(ready&&!VALID.has(w)){toast("Not in word list");return}
+    const m={kind:"sug",word:w,from:"viewer",sid:myId()};
+    if(watch&&watch.conn&&watch.conn.open)watch.conn.send({t:"chat",...m});else return toast("Not connected yet");
+    addMsg(m);
+  }else{
+    const m={kind:"msg",text:raw.slice(0,TEXT_MAX),from:watch?"viewer":"player",sid:myId()};
+    if(watch){if(watch.conn&&watch.conn.open)watch.conn.send({t:"chat",...m});else return toast("Not connected yet")}
+    else broadcast({t:"chat",...m});
+    addMsg(m);
+  }
+  inp.value="";updateSuggestBtn();
+}
+const isWide=()=>innerWidth>=1000;
+const isChatVisible=()=>document.body.classList.contains("chatOn")&&(isWide()||mode==="watch"||$("chat").classList.contains("open"));
+function who(m){return m.sid===myId()?"You":m.from==="player"?"Player":"Viewer"}
+function el(tag,cls,text){const e=document.createElement(tag);if(cls)e.className=cls;if(text!=null)e.textContent=text;return e}
+function renderChat(status){
+  const log=$("chatLog");if(!log)return;
+  const n=stream?stream.viewers.size:0;
+  $("chatMeta").textContent=status||(stream?(n?n+" watching":"Waiting for viewers"):watch?(watch.ended?"Ended":watch.g===null?"Waiting for the game…":"Watching live"):"");
+  $("chatDot").classList.toggle("off",!!(watch&&watch.ended)||(stream&&!n));
+  log.innerHTML="";
+  if(!chatLog.length)log.append(el("div","msg sys",watch?"Say hi, or suggest a word.":"Messages from viewers show up here."));
+  for(const m of chatLog){
+    if(m.kind==="sys"){log.append(el("div","msg sys",m.text));continue}
+    if(m.kind==="word"){
+      const c=el("div","msg wordMsg");
+      c.append(el("div","wm-lbl",m.won?"Solved in "+m.n:"The answer was"),el("div","wm-w",m.word),el("div","wm-ph",m.phon||""),el("div","wm-zh",m.zh||""));
+      log.append(c);continue;
+    }
+    const mine=m.sid===myId(),box=el("div","msg"+(mine?" me":""));
+    box.append(el("div","who",who(m)));
+    if(m.kind==="sug"){
+      const t=el("div","txt sug");t.append(el("span","sugLbl","Try"),el("span","sugWord",m.word));
+      if(!watch&&!mine){
+        if(m.used)t.append(el("span","usedLbl","Used"));
+        else{const u=el("button","btn primary useBtn","Use");u.type="button";u.onclick=()=>useSuggestion(m.word,m);t.append(u)}
+      }
+      box.append(t);
+    }else box.append(el("div","txt",m.text));
+    log.append(box);
+  }
+  log.scrollTop=log.scrollHeight;
+  if(isChatVisible())unread=0;
+  renderStrip();
+}
+function renderStrip(){
+  const s=$("chatStrip");if(!s)return;
+  const last=[...chatLog].reverse().find(m=>m.kind==="msg"||m.kind==="sug");
+  const n=stream?stream.viewers.size:0;
+  $("stripText").textContent=last?(who(last)+": "+(last.kind==="sug"?"try "+last.word.toUpperCase():last.text)):(n?n+" watching · tap to chat":"Live · waiting for viewers");
+  const chip=$("stripUse");
+  if(last&&last.kind==="sug"&&last.sid!==myId()&&!last.used){chip.hidden=false;chip.textContent="Use "+last.word.toUpperCase();chip.onclick=e=>{e.stopPropagation();useSuggestion(last.word,last)}}
+  else chip.hidden=true;
+  const u=$("stripUnread");u.hidden=!unread;u.textContent=unread;
+}
+function placeChat(){
+  const chat=$("chat"),body=document.body;
+  chat.classList.remove("dock","inline","sheet","open");
+  body.classList.remove("chatDocked","chatSheet");
+  if(!body.classList.contains("chatOn"))return;
+  if(isWide()){body.append(chat);chat.classList.add("dock");body.classList.add("chatDocked")}
+  else if(mode==="watch"){document.querySelector("main").append(chat);chat.classList.add("inline")}
+  else{body.append(chat);chat.classList.add("sheet");body.classList.add("chatSheet")}
+  renderChat();
+}
+function openSheet(){const c=$("chat");if(!c.classList.contains("sheet"))return;c.classList.add("open");unread=0;renderChat();setTimeout(()=>$("chatInput").focus(),250)}
+function closeSheet(){const c=$("chat");c.classList.remove("open");$("chatInput").blur();renderStrip()}
+function updateSuggestBtn(){const v=$("chatInput").value.trim().toLowerCase();$("suggestBtn").disabled=!/^[a-z]{5}$/.test(v)}
+
 function initFromHash(){
   const h=location.hash;
   let m=h.match(/^#c=([\w-]+)\.([1-6x])$/);
@@ -812,12 +1144,15 @@ function initFromHash(){
   }
   m=h.match(/^#room=([\w-]+)$/);
   if(m)return joinRoom(m[1]);
+  m=h.match(/^#watch=([\w-]+)$/);
+  if(m)return joinWatch(m[1]);
   build();
 }
 
 /* ---------- Events ---------- */
 kb.addEventListener("click",e=>{const bt=e.target.closest(".key");if(!bt)return;bt.blur();key(bt.dataset.k)});
 document.addEventListener("keydown",e=>{
+  if(e.target.closest&&e.target.closest("#chat")){if(e.key==="Escape")closeSheet();return}
   const open=document.querySelector(".overlay.open");
   if(open){
     if(e.key==="Escape")closeOverlays();
@@ -832,9 +1167,13 @@ $("themeBtn").onclick=e=>{e.currentTarget.blur();setTheme(!isDark(),true)};
 $("statsBtn").onclick=e=>{e.currentTarget.blur();openStats()};
 $("newBtn").onclick=e=>{e.currentTarget.blur();newGame()};
 function openDuo(){
+  const sb=$("streamBtn"),stop=$("stopStreamBtn");
+  if(mode==="watch"){sb.hidden=true;$("streamBox").hidden=true;stop.hidden=false;stop.textContent="Stop watching"}
+  else if(!stream){sb.hidden=false;sb.disabled=mode==="duo";sb.textContent=mode==="duo"?"Unavailable during a live match":"Start streaming"}
+  $("createBtn").disabled=!!stream||mode==="watch";
   const cb=$("chalModeBtn"),canSend=over&&mode!=="duo";
   cb.textContent=mode==="duo"?"Unavailable during a live match":canSend?"Challenge with this word":"Start a word";
-  cb.disabled=mode==="duo";cb.classList.toggle("primary",canSend);
+  cb.disabled=mode==="duo"||mode==="watch";cb.classList.toggle("primary",canSend);
   overlay.classList.remove("open");duoOverlay.classList.add("open");
 }
 $("duoBtn").onclick=e=>{e.currentTarget.blur();openDuo()};
@@ -845,6 +1184,18 @@ $("chalBtn").onclick=shareChallenge;
 $("createBtn").onclick=createRoom;
 $("copyRoom").onclick=()=>copyText($("roomLink").value,"Invite link copied");
 $("leaveBtn").onclick=leaveDuo;
+$("streamBtn").onclick=startStream;
+$("copyStream").onclick=()=>copyText($("streamLink").value,"Stream link copied");
+$("stopStreamBtn").onclick=()=>{if(mode==="watch"){location.href=BASE}else stopStream()};
+$("chatForm").onsubmit=e=>{e.preventDefault();sendChat(false)};
+$("suggestBtn").onclick=()=>sendChat(true);
+$("chatInput").addEventListener("input",updateSuggestBtn);
+$("chatClose").onclick=closeSheet;
+$("chatStrip").onclick=openSheet;
+document.addEventListener("pointerdown",e=>{const c=$("chat");if(c.classList.contains("open")&&!c.contains(e.target)&&!$("chatStrip").contains(e.target))closeSheet()});
+$("chatStrip").onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();openSheet()}};
+let lastWide=isWide();
+addEventListener("resize",()=>{if(isWide()!==lastWide){lastWide=isWide();placeChat()}});
 addEventListener("hashchange",()=>location.reload());
 
 build();
