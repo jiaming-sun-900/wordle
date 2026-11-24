@@ -53,16 +53,29 @@ html{color-scheme:light}
 /* --u: one layout unit. The whole layout (~720u tall) scales to fill the window height,
    capped by width so the board fits on phones. Duo mode adds a progress bar, so it budgets more height. */
 :root{--u:clamp(.6px,min(100dvh/720,100vw/380),2px)}
+/* Newsreader's line box carries a tall ascender, so centred capitals sit ~0.1em high.
+   Padding the top by twice that drops the cap's optical centre onto the box's centre. */
+:root{--nudge:.2em;--h1nudge:.127em}
 body.duo{--u:clamp(.6px,min(100dvh/810,100vw/380),2px)}
 *{box-sizing:border-box}
 html,body{margin:0;height:100%}
 body{background:var(--bg);color:var(--fg);font-family:"Newsreader","Times New Roman",serif;font-variation-settings:"opsz" 24;display:flex;flex-direction:column;align-items:center;transition:background-color .5s var(--ease),color .5s var(--ease)}
-header{width:100%;border-bottom:1px solid var(--t20);display:flex;justify-content:center}
+header{flex:none;width:100%;border-bottom:1px solid var(--t20);display:flex;justify-content:center}
 .bar{width:100%;max-width:calc(500*var(--u));display:flex;align-items:center;justify-content:space-between;padding:calc(6*var(--u)) calc(12*var(--u));gap:8px}
 .bar .side{flex:1 1 0;min-width:0;display:flex;align-items:center;gap:0}
-.bar .side.right{justify-content:flex-end}
-h1{font-variation-settings:"opsz" 60;font-weight:600;font-size:calc(30*var(--u));margin:0;white-space:nowrap;line-height:1}
-.icon{flex:none;background:none;border:none;color:inherit;padding:calc(5*var(--u));cursor:pointer;border-radius:50%;display:flex;align-items:center;gap:5px;font:500 calc(16*var(--u)) inherit;opacity:.7;transition:opacity .2s ease}
+.bar .side.right{justify-content:flex-end;gap:max(10px,calc(12*var(--u)))}
+/* Phones: three icons on one side crowd the title. Rebalance to two a side (Duo + theme | stats + new)
+   so the title sits in the true centre with air on both sides; Duo drops its label (aria-label stays). */
+@media (max-width:520px){
+  .bar{display:grid;grid-template-columns:auto auto 1fr auto 1fr auto auto;column-gap:10px;align-items:center;padding:6px 10px}
+  .bar .side{display:contents}
+  .bar>*,.bar .side>*{grid-row:1}
+  #duoBtn{grid-column:1}#themeBtn{grid-column:2}.bar h1{grid-column:4}#statsBtn{grid-column:6}#newBtn{grid-column:7}
+  .duoLbl{display:none}
+  .icon{padding:7px}
+}
+h1{flex:none;font-variation-settings:"opsz" 60;font-weight:600;font-size:calc(30*var(--u));margin:0;white-space:nowrap;line-height:1.25;transform:translateY(var(--h1nudge,0))}
+.icon{flex:none;background:none;border:none;color:inherit;padding:calc(5*var(--u));cursor:pointer;border-radius:50%;display:flex;align-items:center;gap:5px;font:500 max(16px,calc(17*var(--u))) inherit;opacity:.7;transition:opacity .2s ease}
 .icon:hover,.icon:focus-visible{opacity:1}
 .icon svg,.key svg{width:calc(24*var(--u));height:calc(24*var(--u))}
 #themeBtn svg{overflow:visible;transition:transform .25s ease}
@@ -70,27 +83,46 @@ h1{font-variation-settings:"opsz" 60;font-weight:600;font-size:calc(30*var(--u))
 #themeBtn:hover .sun{transform:scale(1.15)}
 .rays{transform-origin:12px 12px;transition:transform .5s cubic-bezier(.34,1.2,.64,1)}
 #themeBtn:hover .rays{transform:rotate(45deg)}
+/* Stats: the three bars bounce like a level meter, staggered left to right. */
+#statsBtn svg{overflow:visible;transition:transform .25s ease}
+#statsBtn:hover svg{transform:scale(1.15)}
+#statsBtn [class^="b"]{transform-box:fill-box;transform-origin:50% 100%}
+#statsBtn:hover .b1{animation:meter .7s cubic-bezier(.34,1.2,.64,1)}
+#statsBtn:hover .b2{animation:meter .7s cubic-bezier(.34,1.2,.64,1) .08s}
+#statsBtn:hover .b3{animation:meter .7s cubic-bezier(.34,1.2,.64,1) .16s}
+@keyframes meter{0%,100%{transform:scaleY(1)}35%{transform:scaleY(.45)}70%{transform:scaleY(1.12)}}
+/* New game: the arrow swings a full turn, on the same spring as the sun's rays. */
+#newBtn svg{overflow:visible;transition:transform .25s ease}
+#newBtn:hover svg{transform:scale(1.15)}
+#newBtn .spin{transform-origin:12px 12px;transition:transform .6s cubic-bezier(.34,1.2,.64,1)}
+#newBtn:hover .spin{transform:rotate(360deg)}
+@media (prefers-reduced-motion:reduce){#statsBtn [class^="b"]{animation:none!important}}
 .sun{display:none}
 [data-theme="dark"] .moon{display:none}
 [data-theme="dark"] .sun{display:block}
 :focus-visible{outline:2px solid var(--fg);outline-offset:2px}
-main{flex:1;width:100%;max-width:calc(500*var(--u));display:flex;flex-direction:column;justify-content:space-between;position:relative}
+main{flex:1;min-height:0;width:100%;max-width:calc(500*var(--u));display:flex;flex-direction:column;position:relative}
+/* The board takes all the height the keyboard leaves, so there is never a dead band between them.
+   #boardWrap is a size container; the board is the largest 5:6 box that fits in it (minus a margin),
+   capped by width on narrow phones, and tile lettering scales off the same --bh. */
+#play{flex:1;min-height:0;display:flex;flex-direction:column}
+#boardWrap{flex:1;min-height:0;container-type:size;display:flex;align-items:center;justify-content:center}
 #duoBar{display:none;align-items:center;justify-content:space-between;gap:12px;margin:calc(10*var(--u)) calc(16*var(--u)) 0;padding:calc(8*var(--u)) calc(12*var(--u));border:1px solid var(--t20);border-radius:10px}
 body.duo #duoBar{display:flex}
 #tally{font-weight:600;font-size:calc(24*var(--u));white-space:nowrap}
-#tally span{font-size:calc(13*var(--u));color:var(--muted);font-weight:400}
-#duoStatus{flex:1;font-size:calc(14*var(--u));color:var(--muted);text-align:center;font-style:italic}
-.oppWrap{display:flex;align-items:center;gap:6px;font-size:calc(13*var(--u));color:var(--muted)}
+#tally span{font-size:16px;color:var(--muted);font-weight:400}
+#duoStatus{flex:1;font-size:max(16px,calc(15*var(--u)));color:var(--muted);text-align:center;font-style:italic}
+.oppWrap{display:flex;align-items:center;gap:6px;font-size:16px;color:var(--muted)}
 .mini{display:grid;gap:calc(2*var(--u))}
 .mr{display:grid;grid-template-columns:repeat(5,calc(11*var(--u)));gap:calc(2*var(--u))}
 .mc{height:calc(11*var(--u));border:1px solid var(--t20);border-radius:2px}
 .mc.on{border-color:var(--t60)}
 .mc.g{background:var(--green);border-color:transparent}.mc.y{background:var(--amber);border-color:transparent}.mc.x{background:var(--t12);border-color:transparent}
-#board{display:grid;grid-template-rows:repeat(6,1fr);gap:calc(6*var(--u));width:calc(330*var(--u));aspect-ratio:5/6;margin:calc(20*var(--u)) auto}
-.row{display:grid;grid-template-columns:repeat(5,1fr);gap:calc(6*var(--u))}
+#board{--bh:min(100cqh - 32*var(--u),(100cqw - 32px)*1.2);height:var(--bh);width:calc(var(--bh)*5/6);display:grid;grid-template-rows:repeat(6,1fr);gap:calc(var(--bh)*.016)}
+.row{display:grid;grid-template-columns:repeat(5,1fr);gap:calc(var(--bh)*.016)}
 .row.shake{animation:shake .5s}
 @keyframes shake{10%,90%{transform:translateX(-1px)}20%,80%{transform:translateX(2px)}30%,50%,70%{transform:translateX(-4px)}40%,60%{transform:translateX(4px)}}
-.tile{border:2px solid var(--t35);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:calc(34*var(--u));font-weight:600;font-variation-settings:"opsz" 60;text-transform:uppercase;user-select:none;padding-bottom:calc(2*var(--u))}
+.tile{border:2px solid var(--t35);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:calc(34*var(--u));font-weight:600;font-variation-settings:"opsz" 60;text-transform:uppercase;user-select:none;line-height:1;padding-top:var(--nudge);font-size:calc(var(--bh)*.088)}
 .tile.filled{border-color:var(--t70);animation:pop .1s}
 @keyframes pop{50%{transform:scale(1.08)}}
 .tile.flip{animation:flip .5s ease forwards}
@@ -103,77 +135,138 @@ body.duo #duoBar{display:flex}
 @keyframes hop{0%,100%{transform:scale(1)}40%{transform:scale(1.15) rotate(-4deg)}70%{transform:scale(.97)}}
 #kb{padding:0 8px calc(8*var(--u));width:100%}
 .krow{display:flex;gap:calc(6*var(--u));margin-bottom:calc(8*var(--u));justify-content:center;touch-action:manipulation}
-.key{flex:1;max-width:calc(43*var(--u));height:calc(56*var(--u));border:none;border-radius:8px;background:var(--t08);color:var(--fg);font:600 calc(18*var(--u)) "Newsreader","Times New Roman",serif;text-transform:uppercase;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;-webkit-tap-highlight-color:transparent;transition:background-color .5s var(--ease),color .5s var(--ease)}
-.key.wide{flex:1.5;max-width:calc(65*var(--u));font-size:calc(14*var(--u));text-transform:none}
+.key{flex:1;max-width:calc(43*var(--u));height:calc(56*var(--u));border:none;border-radius:8px;background:var(--t08);color:var(--fg);font:600 max(16px,calc(19*var(--u))) "Newsreader","Times New Roman",serif;text-transform:uppercase;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:var(--nudge) 0 0;line-height:1;-webkit-tap-highlight-color:transparent;transition:background-color .5s var(--ease),color .5s var(--ease)}
+.key{box-shadow:inset 0 -2px 0 color-mix(in srgb,var(--ink) 12%,transparent);transition:transform .08s ease,background-color .5s var(--ease),color .5s var(--ease)}
+.key:active{transform:translateY(1px);box-shadow:none}
+.key.x{box-shadow:none}
+.key.wide{flex:1.5;max-width:calc(65*var(--u));font-size:max(16px,calc(15*var(--u)));text-transform:none}
 .key.g{background:var(--green);color:var(--ivory)}.key.y{background:var(--amber);color:var(--ivory)}.key.x{background:transparent;color:var(--t50)}
 .spacer{flex:.5;max-width:calc(20*var(--u))}
 #toasts{position:absolute;top:calc(12*var(--u));left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:8px;z-index:10;pointer-events:none}
-.toast{background:var(--fg);color:var(--bg);font-weight:500;font-size:calc(16*var(--u));padding:calc(10*var(--u)) calc(16*var(--u));border-radius:8px;transition:opacity .3s;white-space:nowrap}
-#source{text-align:center;font-size:calc(13*var(--u));color:var(--muted);padding:0 0 calc(8*var(--u));font-style:italic}
-.overlay{position:fixed;inset:0;background:color-mix(in srgb,var(--bg) 70%,transparent);display:none;align-items:center;justify-content:center;z-index:20;padding:16px}
+.toast{background:var(--fg);color:var(--bg);font-weight:500;font-size:max(16px,calc(17*var(--u)));padding:calc(10*var(--u)) calc(16*var(--u));border-radius:8px;transition:opacity .3s;white-space:nowrap}
+#source{text-align:center;font-size:16px;color:var(--muted);padding:0 0 calc(8*var(--u));font-style:italic}
+.overlay{position:fixed;inset:0;background:color-mix(in srgb,var(--bg) 70%,transparent);display:none;align-items:center;justify-content:center;z-index:20;padding:16px;overflow:auto}
+/* Results: the stats card stays dead centre; the answer card sits in the free space to its right.
+   Narrow screens stack them (answer first) and let the overlay scroll. */
+.resultWrap{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,440px) minmax(0,1fr);gap:28px;align-items:center;width:100%;max-width:1440px;margin:auto}
+.resultWrap>.modal{grid-column:2}
+.resultWrap>.word{grid-column:3;justify-self:start;width:100%;max-width:440px}
+/* Below ~1440px the side column can't hold a comfortable 380px card while the stats card stays
+   dead centre, so centre the pair as a group instead. */
+@media (max-width:1440px) and (min-width:941px){
+  .resultWrap{grid-template-columns:minmax(0,440px) minmax(380px,440px);justify-content:center}
+  .resultWrap>.modal{grid-column:1}.resultWrap>.word{grid-column:2}
+}
+@media (max-width:940px){
+  .overlay{align-items:flex-start}
+  .resultWrap{grid-template-columns:minmax(0,440px);justify-content:center;gap:14px}
+  .resultWrap>.modal,.resultWrap>.word{grid-column:1;max-width:none}
+  .resultWrap>.word{grid-row:1}
+  .resultWrap>.modal{max-height:none}
+}
 .overlay.open{display:flex}
-.modal{background:var(--bg);color:var(--fg);width:100%;max-width:420px;max-height:92dvh;overflow:auto;border:1px solid var(--t20);border-radius:14px;padding:16px 22px 24px;position:relative;box-shadow:0 10px 40px color-mix(in srgb,var(--ink) 18%,transparent)}
-.modal h2{font-size:20px;font-weight:600;text-align:center;margin:14px 0 10px}
-.modal h3{font-size:18px;font-weight:600;margin:20px 0 4px}
-.modal p{font-size:16px;color:var(--muted);line-height:1.5;margin:4px 0 12px}
+.modal,.resultWrap>.word{background:var(--bg);color:var(--fg);border:1px solid var(--t20);border-radius:14px;box-shadow:0 10px 40px color-mix(in srgb,var(--ink) 18%,transparent)}
+.modal{width:100%;max-width:420px;max-height:92dvh;overflow:auto;padding:20px 28px 28px;position:relative}
+.resultWrap>.modal{max-width:none}
+.modal h2{font-size:24px;font-weight:600;text-align:center;margin:16px 0 12px}
+.modal h2+.dist{margin-top:4px}
+.modal h3{font-size:21px;font-weight:600;margin:20px 0 4px}
+.modal p{font-size:18px;color:var(--muted);line-height:1.5;margin:4px 0 12px}
 .close{position:absolute;top:8px;right:8px}
-.stats{display:flex;justify-content:center;gap:8px;margin-bottom:8px}
+/* Play together: the two modes sit side by side as equals, split by a hairline.
+   Each column ends in its action, pinned to the bottom so the buttons line up. */
+.duoModal{max-width:780px;padding:24px 36px 34px}
+.duoModal h2{margin:10px 0 22px}
+.modes{display:grid;grid-template-columns:1fr 1fr}
+.mode{display:flex;flex-direction:column;min-width:0;padding:0 32px}
+.mode:first-child{padding-left:0;border-right:1px solid var(--t20)}
+.mode:last-child{padding-right:0}
+.mode .glyph{width:30px;height:30px;opacity:.75;margin-bottom:10px}
+.mode h3{margin:0}
+.mode .tag{font-style:italic;margin:2px 0 10px}
+.modeAct{margin-top:auto;padding-top:10px;display:flex;flex-direction:column;align-items:flex-start;gap:12px}
+.modeAct #roomBox{align-self:stretch}
+.modeAct #roomStatus{margin:8px 0 0;font-size:17px}
+.linkrow{margin-top:0}
+@media (max-width:720px){
+  .duoModal{padding:22px 24px 28px}
+  .modes{grid-template-columns:1fr}
+  .mode,.mode:first-child,.mode:last-child{padding:0}
+  .mode:first-child{border-right:0;border-bottom:1px solid var(--t20);padding-bottom:24px;margin-bottom:22px}
+}
+.stats{display:flex;justify-content:center;gap:12px;margin-bottom:22px}
 .stat{flex:1;max-width:80px;text-align:center}
-.stat b{display:block;font-size:36px;font-weight:500;font-variation-settings:"opsz" 60}
-.stat span{font-size:14px;color:var(--muted)}
-.dist{display:flex;flex-direction:column;gap:4px;max-width:340px;margin:0 auto}
-.drow{display:flex;align-items:center;gap:8px;font-size:16px}
+.stat b{display:block;font-size:40px;font-weight:500;font-variation-settings:"opsz" 60}
+.stat span{font-size:16px;color:var(--muted)}
+.dist{display:flex;flex-direction:column;gap:6px;max-width:360px;margin:0 auto}
+.drow{display:flex;align-items:center;gap:8px;font-size:17px}
 .drow .n{width:10px}
 .drow .bar2{background:var(--t12);font-weight:600;text-align:right;padding:1px 8px;min-width:7%;border-radius:4px}
 .drow .bar2.hl{background:var(--green);color:var(--ivory)}
-.actions{display:flex;justify-content:center;flex-wrap:wrap;gap:10px;margin-top:22px}
-.btn{border:1px solid var(--fg);border-radius:24px;padding:10px 20px;font:600 17px "Newsreader","Times New Roman",serif;cursor:pointer;background:transparent;color:var(--fg)}
-.btn.primary{background:var(--fg);color:var(--bg)}
-.btn:disabled{opacity:.5;cursor:default}
-.word,.vs{text-align:center;margin:28px 0 4px;padding:14px 12px;border:1px solid var(--t20);border-radius:10px}
-.vs{margin-top:12px}
-.word .lbl{font-size:14px;color:var(--muted);margin-bottom:2px;font-style:italic}
-.word .w{font-size:32px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;font-variation-settings:"opsz" 60}
-.word .ph{color:var(--muted);font-size:16px}
-.word .zh{font-size:20px;margin:8px 0 4px;font-family:"PingFang SC","Songti SC","Noto Serif SC",serif}
-.word .def{font-size:15px;color:var(--muted);line-height:1.45}
-.word a{display:inline-block;margin-top:6px;font-size:14px;color:var(--muted);text-decoration-thickness:.06em;text-underline-offset:.2em}
-.vs .verdict{font-size:24px;font-weight:600;margin-bottom:2px}
-.vs .sub{font-size:15px;color:var(--muted)}
+.actions{display:flex;justify-content:center;flex-wrap:wrap;gap:12px;margin-top:28px}
+.btn{border:1px solid var(--t35);border-radius:999px;padding:calc(11px + var(--nudge)) 22px 11px;line-height:1;font:600 18px/1 "Newsreader","Times New Roman",serif;cursor:pointer;color:var(--fg);
+  background:linear-gradient(to bottom,var(--bg),color-mix(in srgb,var(--fg) 7%,var(--bg)));
+  box-shadow:inset 0 1px 0 color-mix(in srgb,#fff 55%,transparent),0 1px 1px color-mix(in srgb,var(--ink) 10%,transparent),0 3px 8px -2px color-mix(in srgb,var(--ink) 16%,transparent);
+  transition:transform .12s ease,box-shadow .12s ease,background-color .5s var(--ease)}
+[data-theme="dark"] .btn{box-shadow:inset 0 1px 0 color-mix(in srgb,#fff 10%,transparent),0 1px 1px rgba(0,0,0,.35),0 3px 8px -2px rgba(0,0,0,.45)}
+.btn.primary{border-color:var(--fg);color:var(--bg);background:linear-gradient(to bottom,color-mix(in srgb,var(--fg) 86%,var(--bg)),var(--fg))}
+.btn:hover{transform:translateY(-1px);box-shadow:inset 0 1px 0 color-mix(in srgb,#fff 55%,transparent),0 2px 2px color-mix(in srgb,var(--ink) 10%,transparent),0 6px 14px -3px color-mix(in srgb,var(--ink) 22%,transparent)}
+[data-theme="dark"] .btn:hover{box-shadow:inset 0 1px 0 color-mix(in srgb,#fff 12%,transparent),0 2px 2px rgba(0,0,0,.4),0 6px 14px -3px rgba(0,0,0,.55)}
+.btn:active{transform:translateY(1px);box-shadow:inset 0 2px 4px color-mix(in srgb,var(--ink) 22%,transparent)}
+[data-theme="dark"] .btn:active{box-shadow:inset 0 2px 4px rgba(0,0,0,.5)}
+.btn:disabled{opacity:.5;cursor:default;transform:none}
+.vs{text-align:center;margin:30px 0 4px;padding:14px 12px;border:1px solid var(--t20);border-radius:10px}
+/* The answer card reads like a dictionary entry: left-aligned, word first, Chinese as the headline. */
+.word{padding:24px 26px 22px;text-align:left}
+.word .lbl{font-size:16px;color:var(--muted);font-style:italic}
+.word .w{font-size:40px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;font-variation-settings:"opsz" 60;line-height:1.1;margin-top:2px}
+.word .ph{color:var(--muted);font-size:18px;margin-top:2px}
+.word .zh .seg{white-space:nowrap}
+.word .zh .zl{display:flex;align-items:baseline;gap:12px}
+.word .zh .zl+.zl{margin-top:6px}
+.word .zh .pos{flex:none;min-width:2.4em;font:italic 17px "Newsreader","Times New Roman",serif;color:var(--muted)}
+.word .zh .ms{flex:1;min-width:0}
+.word .zh{font-size:22px;line-height:1.45;margin:16px 0 0;padding-top:16px;border-top:1px solid var(--t20);font-family:"PingFang SC","Songti SC","Noto Serif SC",serif}
+.word .def{font-size:17px;color:var(--muted);line-height:1.5;margin-top:10px}
+.word .def:empty{display:none}
+.word a{display:inline-block;margin-top:14px;font-size:16px;color:var(--muted);text-decoration-thickness:.06em;text-underline-offset:.2em}
+.word a:hover{color:var(--fg)}
+.vs .verdict{font-size:26px;font-weight:600;margin-bottom:2px}
+.vs .sub{font-size:17px;color:var(--muted)}
 .vs .og{display:inline-grid;gap:3px;margin-top:10px}
 .vs .og div{display:flex;gap:3px}
-.vs .og span{width:24px;height:24px;border-radius:4px;font:600 14px/23px "Newsreader",serif;text-transform:uppercase}
+.vs .og span{width:28px;height:28px;border-radius:4px;font:600 16px/28px "Newsreader",serif;text-transform:uppercase}
 .vs .og .g{background:var(--green);color:var(--ivory)}.vs .og .y{background:var(--amber);color:var(--ivory)}.vs .og .x{background:var(--t12);color:var(--muted)}
 .linkrow{display:flex;gap:8px;margin-top:10px}
-.linkrow input{flex:1;min-width:0;border:1px solid var(--t20);background:var(--t08);color:var(--fg);border-radius:8px;padding:8px 10px;font:13px ui-monospace,Menlo,monospace}
-.linkrow .btn{padding:6px 16px;font-size:15px}
+.linkrow input{flex:1;min-width:0;border:1px solid var(--t20);background:var(--t08);color:var(--fg);border-radius:8px;padding:8px 10px;font:16px ui-monospace,Menlo,monospace}
+.linkrow .btn{padding:calc(8px + var(--nudge)) 18px 8px;font-size:17px}
 @media (prefers-reduced-motion:reduce){.tile,.row{animation:none!important}*{transition:none!important}}
 </style>
 </head>
 <body>
 <header>
 <div class="bar">
-<div class="side"><button class="icon" id="duoBtn" aria-label="Play together"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/><circle cx="17" cy="9" r="2.8"/><path d="M17 14c2.8 0 4.5 2 4.5 5"/></svg>Duo</button></div>
+<div class="side"><button class="icon" id="duoBtn" aria-label="Play together"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/><circle cx="17" cy="9" r="2.8"/><path d="M17 14c2.8 0 4.5 2 4.5 5"/></svg><span class="duoLbl">Duo</span></button></div>
 <h1>Word <i>Duo</i></h1>
 <div class="side right">
 <button class="icon" id="themeBtn" aria-label="Switch to dark mode">
 <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11z"/></svg>
 <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4.5"/><g class="rays"><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M19.1 4.9l-1.8 1.8M6.7 17.3l-1.8 1.8"/></g></svg>
 </button>
-<button class="icon" id="statsBtn" aria-label="Statistics"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/></svg></button>
-<button class="icon" id="newBtn" aria-label="New game"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M20 11A8 8 0 1 0 18 17"/><path d="M20 4v7h-7"/></svg></button>
+<button class="icon" id="statsBtn" aria-label="Statistics"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M22 20H2"/><path class="b1" d="M4 20V10"/><path class="b2" d="M10 20V4"/><path class="b3" d="M16 20v-8"/></svg></button>
+<button class="icon" id="newBtn" aria-label="New game"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><g class="spin"><path d="M20 11A8 8 0 1 0 18 17"/><path d="M20 4v7h-7"/></g></svg></button>
 </div>
 </div>
 </header>
 <main>
 <div id="toasts" role="status" aria-live="polite"></div>
-<div>
+<div id="play">
 <div id="duoBar">
 <div id="tally">0 <span>you : them</span> 0</div>
 <div id="duoStatus"></div>
 <div class="oppWrap">them<div class="mini" id="mini"></div></div>
 </div>
-<div id="board"></div>
+<div id="boardWrap"><div id="board"></div></div>
 </div>
 <div>
 <div id="kb"></div>
@@ -182,16 +275,9 @@ body.duo #duoBar{display:flex}
 </main>
 
 <div class="overlay" id="overlay">
+<div class="resultWrap">
 <div class="modal" role="dialog" aria-modal="true" aria-labelledby="statsTitle">
 <button class="icon close" data-close aria-label="Close"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
-<div class="word" id="wordCard" hidden>
-<div class="lbl" id="wLbl"></div>
-<div class="w" id="wWord"></div>
-<div class="ph" id="wPhon"></div>
-<div class="zh" id="wZh"></div>
-<div class="def" id="wDef"></div>
-<a id="wMore" target="_blank" rel="noopener">More on Youdao</a>
-</div>
 <div class="vs" id="vsCard" hidden></div>
 <h2 id="statsTitle">Statistics</h2>
 <div class="stats">
@@ -208,22 +294,46 @@ body.duo #duoBar{display:flex}
 <button class="btn primary" id="playBtn">Next word</button>
 </div>
 </div>
+<aside class="word" id="wordCard" hidden aria-label="The answer">
+<div class="lbl" id="wLbl"></div>
+<div class="w" id="wWord"></div>
+<div class="ph" id="wPhon"></div>
+<div class="zh" id="wZh"></div>
+<div class="def" id="wDef"></div>
+<a id="wMore" target="_blank" rel="noopener">More on Youdao</a>
+</aside>
+</div>
 </div>
 
 <div class="overlay" id="duoOverlay">
-<div class="modal" role="dialog" aria-modal="true" aria-labelledby="duoTitle">
+<div class="modal duoModal" role="dialog" aria-modal="true" aria-labelledby="duoTitle">
 <button class="icon close" data-close aria-label="Close"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
 <h2 id="duoTitle">Play together</h2>
+<div class="modes">
+<section class="mode">
+<svg class="glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="2"/><path d="M7.8 7.8a6 6 0 0 0 0 8.4M16.2 7.8a6 6 0 0 1 0 8.4M4.9 4.9a10 10 0 0 0 0 14.2M19.1 4.9a10 10 0 0 1 0 14.2"/></svg>
 <h3>Live match</h3>
-<p>You both guess the same word at the same time. You can see how far along they are and their colors, never their letters. Fewer guesses wins the round, and the score carries over.</p>
+<p class="tag">Both online, same moment</p>
+<p>You guess the same word side by side. You see how far along they are and their colors, never their letters. Fewer guesses takes the round, and the score carries over.</p>
+<div class="modeAct">
 <button class="btn primary" id="createBtn">Create room</button>
 <div id="roomBox" hidden>
 <div class="linkrow"><input id="roomLink" readonly aria-label="Invite link"><button class="btn primary" id="copyRoom">Copy</button></div>
 <p id="roomStatus"></p>
 </div>
-<button class="btn" id="leaveBtn" hidden>Leave duo mode</button>
+<button class="btn" id="leaveBtn" hidden>Leave live match</button>
+</div>
+</section>
+<section class="mode">
+<svg class="glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1.2 1.2"/><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1.2-1.2"/></svg>
 <h3>Challenge link</h3>
-<p>No need to be online together. After a game, tap Challenge on the results screen. They get the same word, and when they finish you both see who needed fewer guesses.</p>
+<p class="tag">Whenever suits them</p>
+<p>Finish a word, then send it. They get the same word, play it on their own time, and the result shows who needed fewer guesses.</p>
+<div class="modeAct">
+<button class="btn" id="chalModeBtn">Start a word</button>
+</div>
+</section>
+</div>
 </div>
 </div>
 
@@ -380,7 +490,11 @@ function submit(){
   },4*300+550);
 }
 
-// Answer lookup: Chinese via MyMemory, phonetic + English definition via dictionaryapi.dev
+// Answer lookup. Chinese + fallback phonetic: dict.json, built from the ECDICT dictionary by
+// tools/build-dict.py. IPA + English definition: dictionaryapi.dev. Machine translation (MyMemory)
+// only for a word dict.json lacks, e.g. a challenge link carrying a word outside the answer list.
+let ecdict=null;
+const loadEcdict=()=>ecdict||(ecdict=fetch("dict.json").then(r=>r.ok?r.json():{}).catch(()=>({})));
 const dict=new Map();
 function lookup(w){
   if(dict.has(w))return dict.get(w);
@@ -391,13 +505,19 @@ function lookup(w){
       out.phon=e.phonetic||((e.phonetics||[]).find(x=>x.text)||{}).text||"";
       out.def=(e.meanings||[]).slice(0,2).map(m=>m.partOfSpeech+". "+m.definitions[0].definition).join("  ");
     }),
-    fetch("https://api.mymemory.translated.net/get?q="+w+"&langpair=en|zh-CN").then(r=>r.ok?r.json():null).then(d=>{
-      if(!d)return;
-      const c=[d.responseData&&d.responseData.translatedText].concat((d.matches||[]).map(m=>m.translation))
-        .filter(t=>t&&/[一-鿿]/.test(t)&&t.length<=12).map(t=>t.replace(/[。.]$/,"").trim());
-      out.zh=[...new Set(c)].slice(0,3).join("；");
-    })
-  ]).then(()=>out);
+    loadEcdict().then(d=>{const e=d[w];if(e){out.ecPhon=e[0];out.zh=e[1].split("\n")}})
+  ]).then(async()=>{
+    if(!out.phon&&out.ecPhon)out.phon="/"+out.ecPhon+"/";
+    if(!out.zh){
+      try{
+        const d=await fetch("https://api.mymemory.translated.net/get?q="+w+"&langpair=en|zh-CN").then(r=>r.ok?r.json():null);
+        const c=d?[d.responseData&&d.responseData.translatedText].concat((d.matches||[]).map(m=>m.translation))
+          .filter(t=>t&&/[\u4e00-\u9fff]/.test(t)&&t.length<=12).map(t=>t.replace(/[。.]$/,"").trim()):[];
+        if(c.length)out.zh=[[...new Set(c)].slice(0,3).join("；")];
+      }catch(e){}
+    }
+    return out;
+  });
   dict.set(w,p);return p;
 }
 function renderWord(){
@@ -412,7 +532,17 @@ function renderWord(){
   lookup(w).then(o=>{
     if(id!==gid)return;
     $("wPhon").textContent=o.phon||"";
-    $("wZh").textContent=o.zh||"No translation found";
+    const zh=$("wZh");zh.textContent="";
+    if(!o.zh)zh.textContent="No translation found";
+    // One row per part of speech: the tag in a narrow italic gutter, meanings beside it.
+    // Each meaning stays whole; a row only wraps between meanings.
+    else o.zh.forEach(line=>{
+      const m=line.match(/^((?:[a-z]+\.\s*)+)\s*(.*)$/),row=document.createElement("div");row.className="zl";
+      if(m){const pos=document.createElement("span");pos.className="pos";pos.textContent=m[1].trim();row.append(pos)}
+      const body=document.createElement("span");body.className="ms";
+      (m?m[2]:line).split("；").forEach((t,i,a)=>{const sp=document.createElement("span");sp.className="seg";sp.textContent=t+(i<a.length-1?"；":"");body.append(sp)});
+      row.append(body);zh.append(row);
+    });
     $("wDef").textContent=o.def||"";
   });
 }
@@ -697,11 +827,18 @@ document.addEventListener("keydown",e=>{
   if(e.ctrlKey||e.metaKey||e.altKey)return;
   if(e.key==="Enter"||e.key==="Backspace"||/^[a-zA-Z]$/.test(e.key)){e.preventDefault();key(e.key)}
 });
-document.querySelectorAll(".overlay").forEach(o=>o.addEventListener("click",e=>{if(e.target===o||e.target.closest("[data-close]"))closeOverlays()}));
+document.querySelectorAll(".overlay").forEach(o=>o.addEventListener("click",e=>{if(e.target===o||e.target.classList.contains("resultWrap")||e.target.closest("[data-close]"))closeOverlays()}));
 $("themeBtn").onclick=e=>{e.currentTarget.blur();setTheme(!isDark(),true)};
 $("statsBtn").onclick=e=>{e.currentTarget.blur();openStats()};
 $("newBtn").onclick=e=>{e.currentTarget.blur();newGame()};
-$("duoBtn").onclick=e=>{e.currentTarget.blur();overlay.classList.remove("open");duoOverlay.classList.add("open")};
+function openDuo(){
+  const cb=$("chalModeBtn"),canSend=over&&mode!=="duo";
+  cb.textContent=mode==="duo"?"Unavailable during a live match":canSend?"Challenge with this word":"Start a word";
+  cb.disabled=mode==="duo";cb.classList.toggle("primary",canSend);
+  overlay.classList.remove("open");duoOverlay.classList.add("open");
+}
+$("duoBtn").onclick=e=>{e.currentTarget.blur();openDuo()};
+$("chalModeBtn").onclick=()=>{if(over&&mode!=="duo")shareChallenge();else closeOverlays()};
 $("playBtn").onclick=newGame;
 $("shareBtn").onclick=share;
 $("chalBtn").onclick=shareChallenge;
