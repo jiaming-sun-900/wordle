@@ -735,23 +735,111 @@ function newGame(){
   closeOverlays();build();
 }
 
-/* ---------- Realtime duo (PeerJS: browser-to-browser, no server of our own) ---------- */
+/* ---------- Connection layer: an encrypted relay over public MQTT brokers ----------
+   Direct browser-to-browser links (WebRTC) were blocked on real networks: campus Wi-Fi, mobile
+   data and Brave's WebRTC protection all stop them. So every message goes through a public MQTT
+   broker over a WebSocket instead, which any network that loads web pages lets through.
+   - Each side joins all three brokers; a link uses whichever broker reaches the other side first.
+   - Payloads are AES-GCM encrypted with a key that lives only in the link's #fragment (browsers
+     never send the fragment anywhere), so the public brokers relay ciphertext only.
+   - RelayPeer/RelayConn mirror the small slice of the PeerJS API the game uses:
+     peer.on("open"|"connection"|"error"), peer.connect(id), conn.on("open"|"data"|"close"),
+     conn.send(), conn.close(), conn.peer, conn.open. */
+const BROKERS=["wss://broker.emqx.io:8084/mqtt","wss://broker.hivemq.com:8884/mqtt","wss://test.mosquitto.org:8081/mqtt"];
+const TOPIC=id=>"wordduo/v1/"+id;
+const b64u=buf=>btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+const unb64u=s=>Uint8Array.from(atob(s.replace(/-/g,"+").replace(/_/g,"/")),c=>c.charCodeAt(0));
+const newKey=()=>b64u(crypto.getRandomValues(new Uint8Array(16)));
+class Emitter{
+  constructor(){this.h={}}
+  on(e,f){(this.h[e]=this.h[e]||[]).push(f);return this}
+  once(e,f){const g=(...a)=>{this.off(e,g);f(...a)};return this.on(e,g)}
+  off(e,f){this.h[e]=(this.h[e]||[]).filter(x=>x!==f)}
+  emit(e,...a){(this.h[e]||[]).slice().forEach(f=>{try{f(...a)}catch(err){console.error(err)}})}
+}
+class RelayConn extends Emitter{
+  constructor(p,remote,client){super();this.p=p;this.peer=remote;this.client=client;this.open=false;this.closed=false;this.seen=Date.now()}
+  send(d){if(this.open)this.p._send(this.client,this.peer,"d",d)}
+  close(){if(this.closed)return;if(this.client)this.p._send(this.client,this.peer,"x");this._drop()}
+  _drop(){if(this.closed)return;this.closed=true;clearInterval(this.retry);const was=this.open;this.open=false;if(this.p.conns.get(this.peer)===this)this.p.conns.delete(this.peer);if(was)this.emit("close")}
+}
+class RelayPeer extends Emitter{
+  constructor(id,key){
+    super();this.id=id||"v-"+b64u(crypto.getRandomValues(new Uint8Array(6)));this.key=key;
+    this.conns=new Map();this.clients=[];this.tx=Promise.resolve();this.rx=Promise.resolve();this.open=false;
+    this._start();
+  }
+  async _start(){
+    try{this.ck=await crypto.subtle.importKey("raw",unb64u(this.key),"AES-GCM",false,["encrypt","decrypt"])}
+    catch(e){return this.emit("error",{type:"bad-key"})}
+    let pending=BROKERS.length;
+    for(const url of BROKERS){
+      const c=mqtt.connect(url,{connectTimeout:8000,reconnectPeriod:3000,clean:true,clientId:"wd_"+b64u(crypto.getRandomValues(new Uint8Array(8)))});
+      let counted=false;const settle=()=>{if(counted)return;counted=true;if(--pending===0&&!this.open)this.emit("error",{type:"network"})};
+      c.on("connect",()=>{c.subscribe(TOPIC(this.id),{qos:1},()=>{if(!this.clients.includes(c))this.clients.push(c);counted=true;if(!this.open){this.open=true;this.emit("open",this.id)}})});
+      c.on("message",(t,m)=>this._recv(c,m.toString()));
+      c.on("error",settle);
+      setTimeout(()=>{if(!this.clients.includes(c))settle()},9000);
+    }
+    this.hb=setInterval(()=>{const now=Date.now();for(const c of this.conns.values()){if(!c.open)continue;if(now-c.seen>25000)c._drop();else this._send(c.client,c.peer,"p")}},5000);
+  }
+  _send(client,to,k,d){
+    if(!client)return;
+    this.tx=this.tx.then(async()=>{
+      const iv=crypto.getRandomValues(new Uint8Array(12));
+      const ct=await crypto.subtle.encrypt({name:"AES-GCM",iv},this.ck,new TextEncoder().encode(JSON.stringify({f:this.id,k,d})));
+      client.publish(TOPIC(to),b64u(iv)+"."+b64u(ct),{qos:1});
+    }).catch(()=>{});
+  }
+  _recv(client,raw){
+    this.rx=this.rx.then(async()=>{
+      const [iv,ct]=raw.split(".");if(!ct)return;
+      let m;try{m=JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({name:"AES-GCM",iv:unb64u(iv)},this.ck,unb64u(ct))))}catch(e){return}
+      if(!m||typeof m.f!=="string"||m.f===this.id)return;
+      let c=this.conns.get(m.f);const now=Date.now();
+      if(m.k==="c"){
+        if(!c||c.closed){c=new RelayConn(this,m.f,client);c.open=true;this.conns.set(m.f,c);this.emit("connection",c);setTimeout(()=>c.emit("open"),0)}
+        c.seen=now;this._send(c.client,m.f,"a");
+      }else if(!c)return;
+      else if(m.k==="a"){c.seen=now;if(!c.open&&!c.closed){c.client=client;c.open=true;clearInterval(c.retry);c.emit("open")}}
+      else if(m.k==="d"){if(c.open){c.seen=now;c.emit("data",m.d)}}
+      else if(m.k==="p")c.seen=now;
+      else if(m.k==="x")c._drop();
+    }).catch(()=>{});
+  }
+  connect(remote){
+    const c=new RelayConn(this,remote,null);this.conns.set(remote,c);
+    let n=0;const knock=()=>{
+      if(c.open||c.closed)return clearInterval(c.retry);
+      if(++n>10){c._drop();this.emit("error",{type:"peer-unavailable"});return}
+      for(const cl of this.clients)this._send(cl,remote,"c");
+    };
+    knock();c.retry=setInterval(knock,2000);
+    return c;
+  }
+  reconnect(){}
+  destroy(){
+    clearInterval(this.hb);
+    for(const c of [...this.conns.values()])c.close();
+    setTimeout(()=>this.clients.forEach(c=>{try{c.end(true)}catch(e){}}),400);
+  }
+}
 let peerLib=null;
 function loadPeer(){
   if(peerLib)return peerLib;
   peerLib=new Promise((res,rej)=>{
     const s=document.createElement("script");
-    s.src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.5/peerjs.min.js";
-    s.onload=()=>res(window.Peer);s.onerror=()=>{peerLib=null;rej(new Error("load"))};
+    s.src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/5.10.1/mqtt.min.js";
+    s.onload=()=>res(RelayPeer);s.onerror=()=>{peerLib=null;rej(new Error("load"))};
     document.head.appendChild(s);
   });
   return peerLib;
 }
-function openPeer(id){
+function openPeer(id,key){
   return new Promise((res,rej)=>{
-    const p=id?new Peer(id):new Peer();
+    const p=new RelayPeer(id,key);
     p.once("open",()=>res(p));
-    p.once("error",e=>{p.destroy();rej(e)});
+    p.once("error",e=>{if(p.open)return;p.destroy();rej(e)});
   });
 }
 const rid=()=>"wduo-"+Array.from(crypto.getRandomValues(new Uint8Array(6)),x=>"abcdefghjkmnpqrstuvwxyz23456789"[x%31]).join("");
@@ -863,13 +951,12 @@ async function createRoom(){
   const btn=$("createBtn");btn.disabled=true;btn.textContent="Creating…";
   try{
     await loadPeer();
-    let p=null;
-    for(let i=0;i<3&&!p;i++){try{p=await openPeer(rid())}catch(e){if(e.type!=="unavailable-id")throw e}}
-    if(!p)throw new Error("id");
+    const key=newKey();
+    const p=await openPeer(rid(),key);
     peer=p;isHost=true;round=0;tally={me:0,opp:0};
     peer.on("connection",c=>{if(conn&&conn!==c)try{conn.close()}catch(e){}wireConn(c)});
     peer.on("disconnected",()=>{try{peer.reconnect()}catch(e){}});
-    $("roomLink").value=BASE+"#room="+peer.id;
+    $("roomLink").value=BASE+"#room="+peer.id+"."+key;
     $("roomBox").hidden=false;btn.hidden=true;$("leaveBtn").hidden=false;
     $("roomStatus").textContent="Send them this link. The match starts when they open it. Keep this page open.";
   }catch(e){
@@ -878,14 +965,14 @@ async function createRoom(){
   }
 }
 
-async function joinRoom(id){
+async function joinRoom(id,key){
   isHost=false;waiting=true;round=0;oppGone=true;
   enterDuo();build();
   try{
     await loadPeer();
-    peer=await openPeer();
+    peer=await openPeer(null,key);
     peer.on("error",e=>{if(e.type==="peer-unavailable"){$("duoStatus").textContent="Room not found, or the host has left";toast("Can't reach the room. The host may have closed the page.",3000)}});
-    wireConn(peer.connect(id,{reliable:true,serialization:"json"}));
+    wireConn(peer.connect(id));
   }catch(e){
     $("duoStatus").textContent="Connection failed";
     toast("Couldn't connect. Check your connection.",2500);
@@ -936,9 +1023,8 @@ async function startStream(){
   const btn=$("streamBtn");btn.disabled=true;btn.textContent="Starting…";
   try{
     await loadPeer();
-    let p=null;
-    for(let i=0;i<3&&!p;i++){try{p=await openPeer(rid())}catch(e){if(e.type!=="unavailable-id")throw e}}
-    if(!p)throw new Error("id");
+    const key=newKey();
+    const p=await openPeer(rid(),key);
     stream={peer:p,viewers:new Map()};chatLog=[];unread=0;
     p.on("connection",c=>{
       const admit=()=>{if(stream.viewers.get(c.peer)===c)return;stream.viewers.set(c.peer,c);
@@ -954,7 +1040,7 @@ async function startStream(){
       c.on("error",()=>{});
     });
     p.on("disconnected",()=>{try{p.reconnect()}catch(e){}});
-    $("streamLink").value=BASE+"#watch="+p.id;
+    $("streamLink").value=BASE+"#watch="+p.id+"."+key;
     $("streamBox").hidden=false;btn.hidden=true;$("stopStreamBtn").hidden=false;
     $("streamStatus").textContent="Send them this link. They'll see your board the moment they open it.";
     document.body.classList.add("chatOn");placeChat();renderChat();
@@ -983,15 +1069,15 @@ function useSuggestion(w,m){
 }
 
 /* ----- viewer side ----- */
-async function joinWatch(id){
+async function joinWatch(id,key){
   mode="watch";watch={peer:null,conn:null,g:null,painted:0,overShown:false,ended:false};
   document.body.classList.add("watching","chatOn");
   makeBoard();placeChat();renderChat("Connecting…");
   try{
     await loadPeer();
-    watch.peer=await openPeer();
+    watch.peer=await openPeer(null,key);
     watch.peer.on("error",e=>{if(e.type==="peer-unavailable")endWatch("Stream not found. The player may have closed the page.")});
-    const c=watch.conn=watch.peer.connect(id,{reliable:true,serialization:"json"});
+    const c=watch.conn=watch.peer.connect(id);
     c.on("open",()=>{
       renderChat();
       let tries=0;const t=setInterval(()=>{if(!watch||watch.conn!==c||watch.g!==null||++tries>20)return clearInterval(t);try{c.send({t:"hello"})}catch(e){}},1500);
@@ -1142,10 +1228,11 @@ function initFromHash(){
     }
     toast("That challenge link doesn't work");clearHash();
   }
-  m=h.match(/^#room=([\w-]+)$/);
-  if(m)return joinRoom(m[1]);
-  m=h.match(/^#watch=([\w-]+)$/);
-  if(m)return joinWatch(m[1]);
+  m=h.match(/^#room=([\w-]+)\.([\w-]{22})$/);
+  if(m)return joinRoom(m[1],m[2]);
+  m=h.match(/^#watch=([\w-]+)\.([\w-]{22})$/);
+  if(m)return joinWatch(m[1],m[2]);
+  if(/^#(room|watch)=/.test(h)){toast("This link is from an older version. Ask for a new one.",3200);clearHash()}
   build();
 }
 
